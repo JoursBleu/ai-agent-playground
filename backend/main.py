@@ -11,7 +11,7 @@ from typing import Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -180,55 +180,3 @@ def agent_docs_raw() -> str:
     if not _AGENT_DOC.exists():
         raise HTTPException(status_code=404, detail="agent doc not found")
     return _AGENT_DOC.read_text(encoding="utf-8")
-
-
-@app.get("/docs", response_class=HTMLResponse)
-def agent_docs_html() -> str:
-    """Browser-friendly rendered version of the agent API doc."""
-    if not _AGENT_DOC.exists():
-        raise HTTPException(status_code=404, detail="agent doc not found")
-    md = _AGENT_DOC.read_text(encoding="utf-8")
-    # Embed via marked.js + highlight.js (CDN). Markdown stays as the single
-    # source of truth; the browser renders it on the fly.
-    return f"""<!doctype html>
-<html lang="zh-CN"><head>
-<meta charset="utf-8" />
-<title>斗地主 Agent API · ai-agent-playground</title>
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<style>
-  body {{ font-family: ui-sans-serif, system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
-         max-width: 900px; margin: 0 auto; padding: 32px 24px;
-         color: #1f2937; background: #fafafa; line-height: 1.7; }}
-  h1,h2,h3 {{ color: #0f172a; }}
-  h1 {{ border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; }}
-  h2 {{ margin-top: 32px; border-bottom: 1px solid #e5e7eb; padding-bottom: 4px; }}
-  code {{ background: #f1f5f9; padding: 2px 6px; border-radius: 3px;
-          font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 0.92em; }}
-  pre {{ background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 6px;
-         overflow-x: auto; font-size: 13px; }}
-  pre code {{ background: transparent; padding: 0; color: inherit; }}
-  table {{ border-collapse: collapse; margin: 12px 0; }}
-  th, td {{ border: 1px solid #d1d5db; padding: 6px 10px; }}
-  th {{ background: #f3f4f6; }}
-  blockquote {{ border-left: 4px solid #f59e0b; background: #fef3c7;
-                margin: 12px 0; padding: 8px 14px; color: #78350f; }}
-  a {{ color: #2563eb; }}
-  .topbar {{ background: #0f172a; color: #e2e8f0; padding: 10px 24px;
-             margin: -32px -24px 24px; border-radius: 0 0 6px 6px; font-size: 14px; }}
-  .topbar a {{ color: #f59e0b; margin-right: 14px; }}
-</style>
-</head><body>
-<div class="topbar">
-  <a href="/">🃏 进入游戏</a>
-  <a href="/docs-agent">📄 给 agent 的纯 Markdown</a>
-  <a href="/api/health">❤️ /api/health</a>
-  <span style="color:#94a3b8">给 agent 用：直接 <code>GET /docs-agent</code> 拿到本页 markdown 原文</span>
-</div>
-<div id="content">加载中…</div>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script>
-  const md = {md!r};
-  document.getElementById('content').innerHTML = marked.parse(md);
-</script>
-</body></html>
-"""

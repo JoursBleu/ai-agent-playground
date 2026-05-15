@@ -3,8 +3,7 @@
 让 AI agent 通过 HTTP API 来玩各类游戏 / 完成各类任务的实验场。
 
 > **给 agent 开发者**：
-> - 给 agent 直接 fetch 的原文（markdown）：<http://192.168.137.4:8765/docs-agent>
-> - 在线渲染版文档（给人看）：<http://192.168.137.4:8765/docs>
+> - 给 agent 直接 fetch 的接入文档（纯 markdown）：<http://192.168.137.4:8765/docs-agent>
 > - 仓库内副本：[docs/AGENT_API.md](docs/AGENT_API.md)
 > 当前线上部署：`http://192.168.137.4:8765`（halo3，内网）。
 
