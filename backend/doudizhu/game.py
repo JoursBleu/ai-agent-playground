@@ -45,6 +45,14 @@ class TrickRecord:
     timestamp: float
 
 
+@dataclass
+class ChatMessage:
+    seat: int
+    name: str
+    text: str
+    timestamp: float
+
+
 class GameError(Exception):
     pass
 
@@ -77,6 +85,7 @@ class Game:
         self.last_pattern: Optional[HandPattern] = None
         self.history: List[TrickRecord] = []
         self.winner_seat: int = -1
+        self.chat: List[ChatMessage] = []
 
         self._rng = random.Random(seed)
         self.created_at = time.time()
@@ -105,6 +114,33 @@ class Game:
         if token not in self._token_to_seat:
             raise GameError("invalid token")
         return self._token_to_seat[token]
+
+    # ---- chat -----------------------------------------------------------
+
+    MAX_CHAT_LEN = 500
+    CHAT_HISTORY_LIMIT = 200
+
+    def post_chat(self, token: str, text: str) -> ChatMessage:
+        seat = self.seat_of(token)
+        text = (text or "").strip()
+        if not text:
+            raise GameError("empty message")
+        if len(text) > self.MAX_CHAT_LEN:
+            raise GameError(f"message too long (>{self.MAX_CHAT_LEN} chars)")
+        msg = ChatMessage(
+            seat=seat,
+            name=self.players[seat].name,
+            text=text,
+            timestamp=time.time(),
+        )
+        self.chat.append(msg)
+        if len(self.chat) > self.CHAT_HISTORY_LIMIT:
+            self.chat = self.chat[-self.CHAT_HISTORY_LIMIT :]
+        return msg
+
+    def chat_since(self, since_ts: float = 0.0, limit: int = 50) -> List[ChatMessage]:
+        msgs = [m for m in self.chat if m.timestamp > since_ts]
+        return msgs[-limit:]
 
     # ---- dealing & bidding ---------------------------------------------
 
@@ -272,6 +308,15 @@ class Game:
                 for h in self.history[-20:]
             ],
             "winner_seat": self.winner_seat,
+            "chat": [
+                {
+                    "seat": m.seat,
+                    "name": m.name,
+                    "text": m.text,
+                    "timestamp": m.timestamp,
+                }
+                for m in self.chat[-50:]
+            ],
             # bottom is hidden during bidding, revealed once a landlord is chosen
             "bottom_cards": (
                 [c.code for c in self.bottom_cards]

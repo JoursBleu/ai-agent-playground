@@ -85,6 +85,17 @@
   }
   .log .me { color: var(--accent); }
   .log .err { color: var(--bad); }
+  .chat {
+    height: 220px; overflow-y: auto; background: #f9fafb;
+    border: 1px solid var(--border); border-radius: 4px; padding: 8px;
+    font-size: 13px;
+  }
+  .chat .msg { margin: 2px 0; line-height: 1.45; }
+  .chat .msg .who { font-weight: 600; color: var(--accent); margin-right: 6px; }
+  .chat .msg .ts { color: var(--muted); font-size: 11px; margin-right: 6px; }
+  .chat .msg.me .who { color: var(--good); }
+  .chat-row { display: flex; gap: 6px; margin-top: 8px; }
+  .chat-row input { flex: 1; width: auto; }
   .status {
     font-size: 13px; color: var(--muted); margin-top: 8px;
   }
@@ -153,6 +164,15 @@
   <div class="log" id="log"></div>
 </section>
 
+<section class="panel" id="chatPanel" style="display:none">
+  <div class="muted" style="font-size:12px;margin-bottom:4px">💬 房间聊天</div>
+  <div class="chat" id="chat"></div>
+  <div class="chat-row">
+    <input id="chatInput" placeholder="说点什么，回车发送" maxlength="500" />
+    <button id="btnSendChat">发送</button>
+  </div>
+</section>
+
 </main>
 
 <script>
@@ -162,6 +182,7 @@ let gameId = null;
 let mySeat = -1;
 let selected = new Set();
 let pollTimer = null;
+let lastChatTs = 0;
 
 const $ = (id) => document.getElementById(id);
 
@@ -207,6 +228,7 @@ $("btnJoin").onclick = async () => {
     $("gameId").value = gid;
     $("btnRefresh").disabled = false;
     $("board").style.display = "";
+    $("chatPanel").style.display = "";
     log(`已加入: seat=${j.seat} player=${j.player_id}`, "me");
     log(`你的 token: ${j.token}  game_id: ${gid}`, "me");
     startPolling();
@@ -318,6 +340,42 @@ function render() {
   }
   $("boardStatus").textContent = status;
   $("turnInfo").textContent = state.you.is_your_turn ? "👉 轮到你" : "";
+
+  // chat
+  renderChat(state.chat || []);
+}
+
+function renderChat(msgs) {
+  const box = $("chat");
+  const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 20;
+  box.innerHTML = "";
+  for (const m of msgs) {
+    const d = document.createElement("div");
+    d.className = "msg" + (m.seat === mySeat ? " me" : "");
+    const ts = new Date(m.timestamp * 1000).toLocaleTimeString();
+    const who = (m.name || ("座位" + m.seat));
+    d.innerHTML = `<span class="ts">${ts}</span><span class="who">${escapeHtml(who)}:</span><span>${escapeHtml(m.text)}</span>`;
+    box.appendChild(d);
+    if (m.timestamp > lastChatTs) lastChatTs = m.timestamp;
+  }
+  if (atBottom) box.scrollTop = box.scrollHeight;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+async function sendChat() {
+  const inp = $("chatInput");
+  const text = inp.value.trim();
+  if (!text || !gameId || !token) return;
+  try {
+    await api("POST", `/api/games/${gameId}/chat`, { token, text });
+    inp.value = "";
+    refresh();
+  } catch (e) {
+    log("发言失败: " + e.message, "err");
+  }
 }
 
 document.querySelectorAll("#bidArea button").forEach((btn) => {
@@ -355,6 +413,11 @@ $("btnPass").onclick = async () => {
     log("不要失败: " + e.message, "err");
   }
 };
+
+$("btnSendChat").onclick = sendChat;
+$("chatInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); sendChat(); }
+});
 </script>
 </body>
 </html>

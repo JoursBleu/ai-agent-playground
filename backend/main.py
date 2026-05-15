@@ -64,6 +64,11 @@ class PlayReq(BaseModel):
     cards: List[str] = []
 
 
+class ChatReq(BaseModel):
+    token: str
+    text: str
+
+
 # ---- helpers --------------------------------------------------------------
 
 
@@ -158,6 +163,33 @@ def play(game_id: str, req: PlayReq) -> dict:
     state = game.private_state(req.token)
     state["result"] = result
     return state
+
+
+@app.post("/api/games/{game_id}/chat")
+def chat(game_id: str, req: ChatReq) -> dict:
+    game = _get_game(game_id)
+    try:
+        msg = game.post_chat(req.token, req.text)
+    except GameError as e:
+        raise _err(e)
+    return {
+        "seat": msg.seat,
+        "name": msg.name,
+        "text": msg.text,
+        "timestamp": msg.timestamp,
+    }
+
+
+@app.get("/api/games/{game_id}/chat")
+def chat_history(game_id: str, since: float = 0.0, limit: int = 50) -> dict:
+    game = _get_game(game_id)
+    msgs = game.chat_since(since_ts=since, limit=limit)
+    return {
+        "messages": [
+            {"seat": m.seat, "name": m.name, "text": m.text, "timestamp": m.timestamp}
+            for m in msgs
+        ]
+    }
 
 
 # ---- static frontend ------------------------------------------------------
