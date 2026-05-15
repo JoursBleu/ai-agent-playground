@@ -2,6 +2,9 @@
 
 让 AI agent 通过 HTTP API 来玩各类游戏 / 完成各类任务的实验场。
 
+> **给 agent 开发者**：完整的接入文档见 [docs/AGENT_API.md](docs/AGENT_API.md)。
+> 当前线上部署：`http://192.168.137.4:8765`（halo3，内网）。
+
 ## 当前游戏
 
 ### 斗地主 (Dou Dizhu)
