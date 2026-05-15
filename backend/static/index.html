@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>斗地主 · ai-agent-playground</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --accent: #f59e0b;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --good: #10b981;
+    --bad: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: ui-sans-serif, system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh;
+  }
+  header {
+    padding: 12px 20px; background: #0b1220; border-bottom: 1px solid #1e293b;
+    display: flex; align-items: center; gap: 16px;
+  }
+  header h1 { margin: 0; font-size: 16px; font-weight: 600; }
+  header .muted { color: var(--muted); font-size: 12px; }
+  main { padding: 20px; max-width: 1100px; margin: 0 auto; }
+  .panel {
+    background: var(--panel); border: 1px solid #334155; border-radius: 8px;
+    padding: 16px; margin-bottom: 16px;
+  }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  button {
+    background: var(--accent); border: 0; color: #1f2937; padding: 6px 14px;
+    border-radius: 4px; cursor: pointer; font-weight: 600;
+  }
+  button.ghost { background: #334155; color: var(--text); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  input, select {
+    background: #0f172a; color: var(--text); border: 1px solid #334155;
+    padding: 6px 10px; border-radius: 4px; font-family: inherit;
+  }
+  input { width: 200px; }
+  label { font-size: 13px; color: var(--muted); margin-right: 4px; }
+  .seats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .seat {
+    background: #0f172a; border: 1px solid #334155; border-radius: 6px;
+    padding: 10px; text-align: center;
+  }
+  .seat.me { border-color: var(--accent); }
+  .seat .name { font-weight: 600; }
+  .seat .badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 11px; }
+  .seat .badge.ll { background: var(--bad); color: white; }
+  .seat .badge.you { background: var(--good); color: white; }
+  .table {
+    min-height: 70px; background: #064e3b; border-radius: 8px;
+    padding: 10px; display: flex; align-items: center; justify-content: center;
+    gap: 4px; flex-wrap: wrap;
+  }
+  .hand { display: flex; flex-wrap: wrap; gap: 4px; min-height: 70px; }
+  .card {
+    width: 42px; height: 60px; background: white; color: #111;
+    border-radius: 5px; padding: 4px; font-weight: 700; font-size: 13px;
+    cursor: pointer; user-select: none; box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+    display: flex; flex-direction: column; justify-content: space-between;
+    border: 2px solid transparent;
+  }
+  .card.red { color: #dc2626; }
+  .card.selected { border-color: var(--accent); transform: translateY(-8px); }
+  .card .b { align-self: flex-end; transform: rotate(180deg); }
+  .log {
+    max-height: 200px; overflow-y: auto; font-family: ui-monospace, monospace;
+    font-size: 12px; background: #0f172a; padding: 8px; border-radius: 4px;
+  }
+  .log .me { color: var(--accent); }
+  .log .err { color: var(--bad); }
+  .status {
+    font-size: 13px; color: var(--muted); margin-top: 8px;
+  }
+  .turn { color: var(--good); font-weight: 600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🀫 斗地主 · ai-agent-playground</h1>
+  <span class="muted">Agent 友好的 HTTP API · 规则可插拔</span>
+</header>
+
+<main>
+
+<section class="panel" id="lobby">
+  <div class="row">
+    <label>玩家昵称</label>
+    <input id="name" placeholder="你的名字" />
+    <label>房间</label>
+    <input id="gameId" placeholder="留空则新建" style="width:140px" />
+    <label>规则</label>
+    <select id="ruleMode">
+      <option value="builtin">builtin (内置)</option>
+      <option value="referee">referee (裁判 agent)</option>
+    </select>
+    <input id="refereeUrl" placeholder="http://referee:8001" style="display:none" />
+    <button id="btnJoin">创建/加入</button>
+    <button id="btnRefresh" class="ghost" disabled>刷新</button>
+  </div>
+  <div class="status" id="lobbyStatus"></div>
+</section>
+
+<section class="panel" id="board" style="display:none">
+  <div class="seats" id="seats"></div>
+  <div style="margin: 14px 0;">
+    <div class="muted" style="font-size:12px;margin-bottom:4px">桌面</div>
+    <div class="table" id="table"><span class="muted">—</span></div>
+  </div>
+  <div style="margin: 14px 0;">
+    <div class="muted" style="font-size:12px;margin-bottom:4px">底牌</div>
+    <div id="bottom" class="hand"></div>
+  </div>
+  <div style="margin: 14px 0;">
+    <div class="muted" style="font-size:12px;margin-bottom:4px">你的手牌（点击选中）</div>
+    <div id="myHand" class="hand"></div>
+  </div>
+  <div class="row" id="bidArea" style="display:none">
+    <span class="muted">叫地主：</span>
+    <button data-bid="0" class="ghost">不叫</button>
+    <button data-bid="1">1分</button>
+    <button data-bid="2">2分</button>
+    <button data-bid="3">3分</button>
+  </div>
+  <div class="row" id="playArea" style="display:none">
+    <button id="btnPlay">出牌</button>
+    <button id="btnPass" class="ghost">不要</button>
+    <span id="turnInfo" class="status"></span>
+  </div>
+  <div class="status" id="boardStatus"></div>
+</section>
+
+<section class="panel">
+  <div class="muted" style="font-size:12px;margin-bottom:4px">操作日志</div>
+  <div class="log" id="log"></div>
+</section>
+
+</main>
+
+<script>
+let state = null;
+let token = null;
+let gameId = null;
+let mySeat = -1;
+let selected = new Set();
+let pollTimer = null;
+
+const $ = (id) => document.getElementById(id);
+
+function log(msg, cls = "") {
+  const el = $("log");
+  const line = document.createElement("div");
+  if (cls) line.className = cls;
+  line.textContent = "[" + new Date().toLocaleTimeString() + "] " + msg;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+async function api(method, path, body) {
+  const opts = { method, headers: { "Content-Type": "application/json" } };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const r = await fetch(path, opts);
+  const txt = await r.text();
+  let data;
+  try { data = JSON.parse(txt); } catch { data = { detail: txt }; }
+  if (!r.ok) throw new Error(data.detail || ("HTTP " + r.status));
+  return data;
+}
+
+$("ruleMode").onchange = (e) => {
+  $("refereeUrl").style.display = e.target.value === "referee" ? "" : "none";
+};
+
+$("btnJoin").onclick = async () => {
+  try {
+    const name = $("name").value || "anonymous";
+    let gid = $("gameId").value.trim();
+    if (!gid) {
+      const body = { rule_mode: $("ruleMode").value };
+      if (body.rule_mode === "referee") body.referee_url = $("refereeUrl").value;
+      const r = await api("POST", "/api/games", body);
+      gid = r.game_id;
+      log("创建房间 " + gid + "  规则=" + r.rule_mode, "me");
+    }
+    const j = await api("POST", `/api/games/${gid}/join`, { player_name: name });
+    gameId = gid;
+    token = j.token;
+    mySeat = j.seat;
+    $("gameId").value = gid;
+    $("btnRefresh").disabled = false;
+    $("board").style.display = "";
+    log(`已加入: seat=${j.seat} player=${j.player_id}`, "me");
+    log(`你的 token: ${j.token}  game_id: ${gid}`, "me");
+    startPolling();
+  } catch (e) {
+    log("加入失败: " + e.message, "err");
+  }
+};
+
+$("btnRefresh").onclick = () => refresh();
+
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  refresh();
+  pollTimer = setInterval(refresh, 1500);
+}
+
+async function refresh() {
+  if (!gameId || !token) return;
+  try {
+    const s = await api("GET", `/api/games/${gameId}/state?token=${encodeURIComponent(token)}`);
+    state = s;
+    render();
+  } catch (e) {
+    log("刷新失败: " + e.message, "err");
+  }
+}
+
+function cardLabel(code) {
+  if (code === "RJ") return { top: "小", bot: "🃟", red: true };
+  if (code === "BJ") return { top: "大", bot: "🃟", red: false };
+  const rank = code[0], suit = code[1];
+  const suitChar = { S: "♠", H: "♥", D: "♦", C: "♣" }[suit];
+  const red = suit === "H" || suit === "D";
+  const r = rank === "T" ? "10" : rank;
+  return { top: r + suitChar, bot: r + suitChar, red };
+}
+
+function renderCard(code, selectable) {
+  const { top, bot, red } = cardLabel(code);
+  const el = document.createElement("div");
+  el.className = "card" + (red ? " red" : "") + (selected.has(code) ? " selected" : "");
+  el.innerHTML = `<span>${top}</span><span class="b">${bot}</span>`;
+  if (selectable) {
+    el.onclick = () => {
+      if (selected.has(code)) selected.delete(code);
+      else selected.add(code);
+      render();
+    };
+  }
+  return el;
+}
+
+function render() {
+  if (!state) return;
+  // seats
+  const seats = $("seats");
+  seats.innerHTML = "";
+  for (let i = 0; i < 3; i++) {
+    const p = state.players[i];
+    const d = document.createElement("div");
+    d.className = "seat" + (i === mySeat ? " me" : "");
+    const badges = [];
+    if (i === mySeat) badges.push('<span class="badge you">你</span>');
+    if (p.is_landlord) badges.push('<span class="badge ll">地主</span>');
+    if (i === state.current_turn && state.phase === "playing") badges.push('<span class="badge you">出牌中</span>');
+    if (i === state.bid_turn && state.phase === "bidding") badges.push('<span class="badge you">叫牌中</span>');
+    d.innerHTML = `
+      <div class="name">座位 ${i}: ${p.name || "(空)"}</div>
+      <div>${badges.join(" ")}</div>
+      <div class="muted" style="font-size:12px;margin-top:4px">手牌 ${p.hand_count}</div>
+    `;
+    seats.appendChild(d);
+  }
+  // table
+  const t = $("table");
+  t.innerHTML = "";
+  if (state.last_play_cards && state.last_play_cards.length) {
+    for (const c of state.last_play_cards) t.appendChild(renderCard(c, false));
+  } else {
+    t.innerHTML = '<span class="muted">—</span>';
+  }
+  // bottom
+  const b = $("bottom");
+  b.innerHTML = "";
+  if (state.bottom_cards && state.bottom_cards.length) {
+    for (const c of state.bottom_cards) b.appendChild(renderCard(c, false));
+  } else {
+    b.innerHTML = '<span class="muted">尚未揭晓</span>';
+  }
+  // hand
+  const h = $("myHand");
+  h.innerHTML = "";
+  const myHand = (state.you && state.you.hand) || [];
+  const myCodes = new Set(myHand);
+  for (const c of Array.from(selected)) if (!myCodes.has(c)) selected.delete(c);
+  for (const c of myHand) h.appendChild(renderCard(c, true));
+  // bid/play areas
+  $("bidArea").style.display = state.phase === "bidding" && state.you.is_your_turn ? "" : "none";
+  $("playArea").style.display = state.phase === "playing" && state.you.is_your_turn ? "" : "none";
+
+  let status = `阶段=${state.phase}  规则=${state.rule_mode}`;
+  if (state.phase === "playing") {
+    status += `  当前出牌=座位${state.current_turn}`;
+  }
+  if (state.phase === "finished") {
+    const w = state.winner_seat;
+    const winner = state.players[w];
+    status += `  ⭐ 胜者: 座位${w} ${winner.name} ${winner.is_landlord ? "(地主)" : "(农民)"}`;
+  }
+  $("boardStatus").textContent = status;
+  $("turnInfo").textContent = state.you.is_your_turn ? "👉 轮到你" : "";
+}
+
+document.querySelectorAll("#bidArea button").forEach((btn) => {
+  btn.onclick = async () => {
+    try {
+      await api("POST", `/api/games/${gameId}/bid`, { token, bid: +btn.dataset.bid });
+      log("叫分 " + btn.dataset.bid, "me");
+      refresh();
+    } catch (e) {
+      log("叫分失败: " + e.message, "err");
+    }
+  };
+});
+
+$("btnPlay").onclick = async () => {
+  if (!selected.size) { log("请选牌", "err"); return; }
+  const cards = Array.from(selected);
+  try {
+    const r = await api("POST", `/api/games/${gameId}/play`, { token, cards });
+    log("出牌 " + cards.join(",") + (r.result && r.result.pattern ? " [" + r.result.pattern.category + "]" : ""), "me");
+    selected.clear();
+    refresh();
+  } catch (e) {
+    log("出牌失败: " + e.message, "err");
+  }
+};
+
+$("btnPass").onclick = async () => {
+  try {
+    await api("POST", `/api/games/${gameId}/play`, { token, cards: [] });
+    log("不要", "me");
+    selected.clear();
+    refresh();
+  } catch (e) {
+    log("不要失败: " + e.message, "err");
+  }
+};
+</script>
+</body>
+</html>
