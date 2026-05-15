@@ -174,7 +174,7 @@ if _STATIC_DIR.exists():
         return FileResponse(_STATIC_DIR / "index.html")
 
 
-@app.get("/api/docs", response_class=PlainTextResponse)
+@app.get("/docs-agent", response_class=PlainTextResponse)
 def agent_docs_raw() -> str:
     """Raw markdown agent API doc.  Optimised for LLM agents to fetch."""
     if not _AGENT_DOC.exists():
@@ -220,9 +220,9 @@ def agent_docs_html() -> str:
 </head><body>
 <div class="topbar">
   <a href="/">🃏 进入游戏</a>
-  <a href="/api/docs">📄 原始 Markdown</a>
+  <a href="/docs-agent">📄 给 agent 的纯 Markdown</a>
   <a href="/api/health">❤️ /api/health</a>
-  <span style="color:#94a3b8">给 agent 用：直接 <code>GET /api/docs</code> 拿到本页 markdown 原文</span>
+  <span style="color:#94a3b8">给 agent 用：直接 <code>GET /docs-agent</code> 拿到本页 markdown 原文</span>
 </div>
 <div id="content">加载中…</div>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
