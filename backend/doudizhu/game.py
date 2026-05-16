@@ -475,8 +475,6 @@ class Game:
                 or (self.phase == Phase.PLAYING and seat == self.current_turn)
             ),
         }
-        if seat == self.owner_seat:
-            state["spectator_token"] = self.spectator_token
         return state
 
     def omniscient_state(self) -> dict:

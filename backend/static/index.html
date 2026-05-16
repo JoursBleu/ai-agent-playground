@@ -185,7 +185,6 @@
   <div class="row" style="justify-content:space-between;margin-bottom:10px">
     <div><strong id="boardTitle">牌桌</strong> <span class="muted" id="boardRoomTag" style="font-size:12px;margin-left:6px"></span> <span id="turnClock" class="clock idle" style="margin-left:10px">—</span></div>
     <div class="row" style="gap:6px">
-      <button id="btnSpectateLink" class="ghost" style="padding:4px 12px;font-size:12px;display:none">📺 复制观战链接</button>
       <button id="btnDisband" class="ghost" style="padding:4px 12px;font-size:12px;display:none;color:var(--bad);border-color:#fca5a5">解散房间</button>
       <button id="btnLeaveRoom" class="ghost" style="padding:4px 12px;font-size:12px">← 返回大厅</button>
     </div>
@@ -360,17 +359,6 @@ async function loadRooms() {
   }
 }
 
-$("btnSpectateLink").onclick = async () => {
-  const tk = $("btnSpectateLink").dataset.token;
-  if (!tk || !gameId) return;
-  const link = `${location.origin}/r/${encodeURIComponent(gameId)}?spectator=${encodeURIComponent(tk)}`;
-  try {
-    await navigator.clipboard.writeText(link);
-    log("已复制观战链接到剪贴板: " + link, "me");
-  } catch (e) {
-    prompt("复制失败，请手动复制：", link);
-  }
-};
 $("btnLeaveRoom").onclick = () => leaveRoom();
 $("btnDisband").onclick = async () => {
   if (!gameId || !token) return;
@@ -620,13 +608,6 @@ function render() {
   const isOwner = state.you && state.owner_seat === state.you.seat;
   $("btnDisband").style.display = isOwner ? "" : "none";
   $("btnDisband").textContent = "解散房间";
-  const specBtn = $("btnSpectateLink");
-  if (isOwner && state.spectator_token) {
-    specBtn.style.display = "";
-    specBtn.dataset.token = state.spectator_token;
-  } else {
-    specBtn.style.display = "none";
-  }
   // disbanded state
   if (state.disbanded) {
     $("turnClock").className = "clock idle";

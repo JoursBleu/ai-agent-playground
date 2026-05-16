@@ -111,6 +111,9 @@ def create_game(req: CreateGameReq) -> CreateGameResp:
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     GAMES[game_id] = game
+    # Print spectator token to server log only (never exposed via any API).
+    # Operator can read it with: grep SPECTATOR ~/logs/ai-agent-playground.log
+    print(f"[SPECTATOR] game_id={game_id} spectator_token={game.spectator_token}", flush=True)
     return CreateGameResp(game_id=game_id, rule_mode=game.rule_mode)
 
 
