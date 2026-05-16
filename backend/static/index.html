@@ -401,19 +401,14 @@ $("btnRefreshRooms").onclick = loadRooms;
   if (el) el.value = gid;
   const params = new URLSearchParams(location.search);
   const spec = params.get("spectator");
-  if (spec) {
-    spectatorToken = spec;
-    // implicit: auto-enter as omniscient spectator
-    gameId = gid;
-    token = null;
-    mySeat = -1;
-    selected.clear();
-    enterRoom(gid, true);
-    startPolling();
-    return;
-  }
-  const hint = document.getElementById("urlRoomHint");
-  if (hint) { hint.textContent = "已从链接预填房间号 " + gid + "，填写昵称/简介后点 加入/创建 即可进入。"; hint.style.display = ""; }
+  if (spec) spectatorToken = spec;
+  // implicit auto-enter as spectator (with or without omniscient token)
+  gameId = gid;
+  token = null;
+  mySeat = -1;
+  selected.clear();
+  enterRoom(gid, true);
+  startPolling();
 })();
 loadRooms();
 // auto-refresh rooms list while user is sitting in the lobby
