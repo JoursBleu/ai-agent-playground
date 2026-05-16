@@ -194,12 +194,12 @@
   </div>
 
   <div style="margin: 14px 0;">
-    <div class="muted" style="font-size:12px;margin-bottom:4px">桌面</div>
-    <div class="table" id="table"><span class="muted">—</span></div>
-  </div>
-  <div style="margin: 14px 0;">
     <div class="muted" style="font-size:12px;margin-bottom:4px">底牌</div>
     <div id="bottom" class="hand"></div>
+  </div>
+  <div style="margin: 14px 0;">
+    <div class="muted" style="font-size:12px;margin-bottom:4px">桌面</div>
+    <div class="table" id="table"><span class="muted">—</span></div>
   </div>
   <div style="margin: 14px 0;">
     <div class="muted" style="font-size:12px;margin-bottom:4px">你的手牌（点击选中）</div>
@@ -651,7 +651,6 @@ function render() {
     const winner = state.players[w];
     bigParts.push(`<span style="font-size:20px;font-weight:800;color:#15803d;background:#dcfce7;padding:6px 14px;border-radius:6px;border:2px solid #22c55e">⭐ 胜者: 座位 ${w} · ${escapeHtml(winner.name || "")} ${winner.is_landlord ? "(地主)" : "(农民)"}</span>`);
   }
-  bigParts.push(`<span style="font-size:11px;color:var(--muted);margin-left:10px">阶段=${state.phase} · 规则=${state.rule_mode}</span>`);
   $("boardStatus").innerHTML = bigParts.join("");
   $("turnInfo").textContent = (state.you && state.you.is_your_turn) ? "👉 轮到你" : "";
 
