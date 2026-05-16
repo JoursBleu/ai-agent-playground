@@ -128,6 +128,13 @@
     <button id="btnRefresh" class="ghost" disabled>刷新</button>
   </div>
   <div class="status" id="lobbyStatus"></div>
+  <div style="margin-top:14px">
+    <div class="row" style="justify-content:space-between;margin-bottom:6px">
+      <div class="muted" style="font-size:12px">现有房间</div>
+      <button id="btnRefreshRooms" class="ghost" style="padding:2px 10px;font-size:12px">刷新列表</button>
+    </div>
+    <div id="roomsList" class="muted" style="font-size:13px">加载中…</div>
+  </div>
 </section>
 
 <section class="panel" id="board" style="display:none">
@@ -239,6 +246,50 @@ $("btnJoin").onclick = async () => {
 
 $("btnRefresh").onclick = () => refresh();
 
+async function loadRooms() {
+  const box = $("roomsList");
+  try {
+    const r = await api("GET", "/api/games");
+    const games = r.games || [];
+    if (!games.length) {
+      box.innerHTML = '<span class="muted">还没有房间，先创建一个吧</span>';
+      return;
+    }
+    const rows = games.map(g => {
+      const seats = (g.players || []).map(p => p || '<em class="muted">空座</em>').join(' · ');
+      const open = (g.players || []).some(p => !p);
+      const phaseColor = g.phase === 'waiting' ? '#059669' : (g.phase === 'bidding' ? '#d97706' : '#6b7280');
+      const joinBtn = open
+        ? `<button class="ghost" data-join="${g.game_id}" style="padding:2px 10px;font-size:12px">加入</button>`
+        : `<button class="ghost" data-join="${g.game_id}" style="padding:2px 10px;font-size:12px" disabled>已满</button>`;
+      const watchBtn = `<button class="ghost" data-watch="${g.game_id}" style="padding:2px 10px;font-size:12px;margin-left:4px">旁观</button>`;
+      const btn = joinBtn + watchBtn;
+      return `<div class="row" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 0">
+        <div>
+          <code style="font-size:12px">${g.game_id}</code>
+          <span style="color:${phaseColor};font-size:12px;margin-left:6px">${g.phase}</span>
+          <span class="muted" style="font-size:12px;margin-left:6px">${g.rule_mode}</span>
+          <div style="font-size:13px;margin-top:2px">${seats}</div>
+        </div>
+        <div>${btn}</div>
+      </div>`;
+    }).join('');
+    box.innerHTML = rows;
+    box.querySelectorAll('[data-join]:not([disabled])').forEach(b => {
+      b.onclick = () => { $("gameId").value = b.dataset.join; $("btnJoin").click(); };
+    });
+    box.querySelectorAll('[data-watch]').forEach(b => {
+      b.onclick = () => watchGame(b.dataset.watch);
+    });
+  } catch (e) {
+    box.innerHTML = '<span class="err">加载失败: ' + e.message + '</span>';
+  }
+}
+
+$("btnRefreshRooms").onclick = loadRooms;
+loadRooms();
+setInterval(() => { if (!gameId) loadRooms(); }, 3000);
+
 function startPolling() {
   if (pollTimer) clearInterval(pollTimer);
   refresh();
@@ -246,14 +297,37 @@ function startPolling() {
 }
 
 async function refresh() {
-  if (!gameId || !token) return;
+  if (!gameId) return;
   try {
-    const s = await api("GET", `/api/games/${gameId}/state?token=${encodeURIComponent(token)}`);
+    const url = token
+      ? `/api/games/${gameId}/state?token=${encodeURIComponent(token)}`
+      : `/api/games/${gameId}/state`;
+    const s = await api("GET", url);
     state = s;
+    if (!token) {
+      // spectator: chat history not embedded in public_state, pull separately
+      try {
+        const ch = await api("GET", `/api/games/${gameId}/chat?since=0&limit=50`);
+        state.chat = ch.messages || [];
+      } catch (_) {}
+    }
     render();
   } catch (e) {
     log("刷新失败: " + e.message, "err");
   }
+}
+
+function watchGame(gid) {
+  gameId = gid;
+  token = null;
+  mySeat = -1;
+  selected.clear();
+  $("gameId").value = gid;
+  $("btnRefresh").disabled = false;
+  $("board").style.display = "";
+  $("chatPanel").style.display = "";
+  log("旁观房间 " + gid, "me");
+  startPolling();
 }
 
 function cardLabel(code) {
@@ -325,9 +399,13 @@ function render() {
   const myCodes = new Set(myHand);
   for (const c of Array.from(selected)) if (!myCodes.has(c)) selected.delete(c);
   for (const c of myHand) h.appendChild(renderCard(c, true));
+  if (!state.you) {
+    h.innerHTML = '<span class="muted">（旁观模式，看不到手牌）</span>';
+  }
   // bid/play areas
-  $("bidArea").style.display = state.phase === "bidding" && state.you.is_your_turn ? "" : "none";
-  $("playArea").style.display = state.phase === "playing" && state.you.is_your_turn ? "" : "none";
+  const myTurn = !!(state.you && state.you.is_your_turn);
+  $("bidArea").style.display = state.phase === "bidding" && myTurn ? "" : "none";
+  $("playArea").style.display = state.phase === "playing" && myTurn ? "" : "none";
 
   let status = `阶段=${state.phase}  规则=${state.rule_mode}`;
   if (state.phase === "playing") {
@@ -339,7 +417,7 @@ function render() {
     status += `  ⭐ 胜者: 座位${w} ${winner.name} ${winner.is_landlord ? "(地主)" : "(农民)"}`;
   }
   $("boardStatus").textContent = status;
-  $("turnInfo").textContent = state.you.is_your_turn ? "👉 轮到你" : "";
+  $("turnInfo").textContent = (state.you && state.you.is_your_turn) ? "👉 轮到你" : "";
 
   // chat
   renderChat(state.chat || []);
@@ -418,6 +496,21 @@ $("btnSendChat").onclick = sendChat;
 $("chatInput").addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); sendChat(); }
 });
+
+// Toggle chat input usability based on token (spectator vs player)
+function _refreshChatInputState() {
+  const inp = $("chatInput"), btn = $("btnSendChat");
+  if (!inp || !btn) return;
+  if (token) {
+    inp.disabled = false; btn.disabled = false;
+    inp.placeholder = "说点什么，回车发送";
+  } else {
+    inp.disabled = true; btn.disabled = true;
+    inp.placeholder = "旁观者不能发言";
+  }
+}
+const _origRender = render;
+render = function() { _origRender(); _refreshChatInputState(); };
 </script>
 </body>
 </html>
