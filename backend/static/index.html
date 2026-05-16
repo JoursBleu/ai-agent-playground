@@ -185,6 +185,7 @@
   <div class="row" style="justify-content:space-between;margin-bottom:10px">
     <div><strong id="boardTitle">牌桌</strong> <span class="muted" id="boardRoomTag" style="font-size:12px;margin-left:6px"></span> <span id="turnClock" class="clock idle" style="margin-left:10px">—</span></div>
     <div class="row" style="gap:6px">
+      <button id="btnSpectateLink" class="ghost" style="padding:4px 12px;font-size:12px;display:none">📺 复制观战链接</button>
       <button id="btnDisband" class="ghost" style="padding:4px 12px;font-size:12px;display:none;color:var(--bad);border-color:#fca5a5">解散房间</button>
       <button id="btnLeaveRoom" class="ghost" style="padding:4px 12px;font-size:12px">← 返回大厅</button>
     </div>
@@ -260,6 +261,7 @@ let mySeat = -1;
 let selected = new Set();
 let pollTimer = null;
 let lastChatTs = 0;
+let spectatorToken = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -357,6 +359,17 @@ async function loadRooms() {
   }
 }
 
+$("btnSpectateLink").onclick = async () => {
+  const tk = $("btnSpectateLink").dataset.token;
+  if (!tk || !gameId) return;
+  const link = `${location.origin}/r/${encodeURIComponent(gameId)}?spectator=${encodeURIComponent(tk)}`;
+  try {
+    await navigator.clipboard.writeText(link);
+    log("已复制观战链接到剪贴板: " + link, "me");
+  } catch (e) {
+    prompt("复制失败，请手动复制：", link);
+  }
+};
 $("btnLeaveRoom").onclick = () => leaveRoom();
 $("btnDisband").onclick = async () => {
   if (!gameId || !token) return;
@@ -382,13 +395,25 @@ if (_nameInp) {
 $("btnRefreshRooms").onclick = loadRooms;
 (function initFromUrl(){
   const m = location.pathname.match(/^\/r\/([^\/?#]+)$/);
-  if (m) {
-    const gid = decodeURIComponent(m[1]);
-    const el = document.getElementById("gameId");
-    if (el) el.value = gid;
-    const hint = document.getElementById("urlRoomHint");
-    if (hint) { hint.textContent = "已从链接预填房间号 " + gid + "，填写昵称/简介后点 加入/创建 即可进入。"; hint.style.display = ""; }
+  if (!m) return;
+  const gid = decodeURIComponent(m[1]);
+  const el = document.getElementById("gameId");
+  if (el) el.value = gid;
+  const params = new URLSearchParams(location.search);
+  const spec = params.get("spectator");
+  if (spec) {
+    spectatorToken = spec;
+    // implicit: auto-enter as omniscient spectator
+    gameId = gid;
+    token = null;
+    mySeat = -1;
+    selected.clear();
+    enterRoom(gid, true);
+    startPolling();
+    return;
   }
+  const hint = document.getElementById("urlRoomHint");
+  if (hint) { hint.textContent = "已从链接预填房间号 " + gid + "，填写昵称/简介后点 加入/创建 即可进入。"; hint.style.display = ""; }
 })();
 loadRooms();
 // auto-refresh rooms list while user is sitting in the lobby
@@ -449,9 +474,14 @@ function tickClock() {
 async function refresh() {
   if (!gameId) return;
   try {
-    const url = token
-      ? `/api/games/${gameId}/state?token=${encodeURIComponent(token)}`
-      : `/api/games/${gameId}/state`;
+    let url;
+    if (token) {
+      url = `/api/games/${gameId}/state?token=${encodeURIComponent(token)}`;
+    } else if (spectatorToken) {
+      url = `/api/games/${gameId}/state?spectator=${encodeURIComponent(spectatorToken)}`;
+    } else {
+      url = `/api/games/${gameId}/state`;
+    }
     const s = await api("GET", url);
     state = s;
     if (!token) {
@@ -497,6 +527,7 @@ function leaveRoom() {
   if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
   gameId = null;
   token = null;
+  spectatorToken = null;
   mySeat = -1;
   state = null;
   selected.clear();
@@ -559,6 +590,7 @@ function render() {
         <div style="font-size:12px;color:var(--muted);margin-top:2px">手牌 ${p.hand_count}</div>
         <div style="margin-top:4px">${badges.join(" ")}</div>
         ${bioHtml}
+        ${p.hand && i !== mySeat ? `<div class="spectator-hand" style="margin-top:6px;font-family:monospace;font-size:11px;color:#9ad;word-break:break-all">${p.hand.map(escapeHtml).join(' ')}</div>` : ''}
       `;
       seatsBox.appendChild(d);
     }
@@ -593,6 +625,13 @@ function render() {
   const isOwner = state.you && state.owner_seat === state.you.seat;
   $("btnDisband").style.display = isOwner ? "" : "none";
   $("btnDisband").textContent = "解散房间";
+  const specBtn = $("btnSpectateLink");
+  if (isOwner && state.spectator_token) {
+    specBtn.style.display = "";
+    specBtn.dataset.token = state.spectator_token;
+  } else {
+    specBtn.style.display = "none";
+  }
   // disbanded state
   if (state.disbanded) {
     $("turnClock").className = "clock idle";

@@ -140,13 +140,19 @@ def join(game_id: str, req: JoinReq) -> JoinResp:
 
 
 @app.get("/api/games/{game_id}/state")
-def get_state(game_id: str, token: Optional[str] = None) -> dict:
+def get_state(
+    game_id: str,
+    token: Optional[str] = None,
+    spectator: Optional[str] = None,
+) -> dict:
     game = _get_game(game_id)
     if token:
         try:
             return game.private_state(token)
         except GameError as e:
             raise _err(e)
+    if spectator and game.is_spectator_token(spectator):
+        return game.omniscient_state()
     return game.public_state()
 
 

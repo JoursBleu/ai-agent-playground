@@ -104,6 +104,8 @@ class Game:
         self.owner_seat: int = -1       # first joiner becomes owner
         self.disbanded: bool = False
         self.disbanded_reason: str = ""
+        # opaque omniscient-spectator token; anyone with this can see all hands
+        self.spectator_token: str = secrets.token_hex(8)
 
         self._rng = random.Random(seed)
         self.created_at = time.time()
@@ -473,4 +475,18 @@ class Game:
                 or (self.phase == Phase.PLAYING and seat == self.current_turn)
             ),
         }
+        if seat == self.owner_seat:
+            state["spectator_token"] = self.spectator_token
         return state
+
+    def omniscient_state(self) -> dict:
+        """All-hands view for spectator-token holders."""
+        state = self.public_state()
+        for i, p in enumerate(self.players):
+            if p is not None:
+                state["players"][i]["hand"] = [c.code for c in p.hand]
+        state["omniscient"] = True
+        return state
+
+    def is_spectator_token(self, token: str) -> bool:
+        return bool(token) and token == self.spectator_token
