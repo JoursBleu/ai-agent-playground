@@ -54,6 +54,12 @@ class CreateKeyReq(BaseModel):
     name: str = Field(min_length=1, max_length=64)
 
 
+class KeygenReq(BaseModel):
+    login: str
+    password: str
+    name: str = "agent"
+
+
 class BanReq(BaseModel):
     reason: str = ""
 
@@ -116,7 +122,19 @@ def register(req: RegisterReq, request: Request, response: Response) -> dict:
     db.touch_user_login(uid)
     _set_session_cookie(response, sid, request)
     u = db.find_user_by_id(uid)
-    return {"ok": True, "user": _user_summary(u)}
+    # Issue a bootstrap API key so AI agents can authenticate without managing cookies.
+    full, prefix, h = new_api_key()
+    db.create_api_key(user_id=uid, name="bootstrap", key_prefix=prefix, key_hash=h)
+    return {
+        "ok": True,
+        "user": _user_summary(u),
+        "api_key": {
+            "name": "bootstrap",
+            "key_prefix": prefix,
+            "key": full,
+            "warning": "请妥善保存，此 key 仅在创建时显示一次。",
+        },
+    }
 
 
 @router.post("/login")
@@ -192,6 +210,33 @@ def create_key(req: CreateKeyReq, user: CurrentUser = Depends(require_user)) -> 
     kid = db.create_api_key(user_id=user.id, name=req.name.strip(), key_prefix=prefix, key_hash=h)
     return {"id": kid, "name": req.name.strip(), "key_prefix": prefix, "key": full,
             "warning": "请妥善保存，此 key 仅在创建时显示一次。"}
+
+
+@router.post("/keygen")
+def keygen(req: KeygenReq) -> dict:
+    """Stateless endpoint for AI agents: exchange username+password for a new API key.
+
+    Returns the full key only here. Subsequent calls should use
+    `Authorization: Bearer <key>`. No cookie/session is set.
+    """
+    u = db.find_user_by_login(req.login.strip())
+    if u is None or not verify_password(req.password, u["password_hash"]):
+        raise HTTPException(status_code=401, detail="用户名或密码错误")
+    if int(u["is_banned"]):
+        raise HTTPException(status_code=403, detail="账号已被封禁")
+    name = req.name.strip() or "agent"
+    if len(name) > 64:
+        name = name[:64]
+    full, prefix, h = new_api_key()
+    kid = db.create_api_key(user_id=int(u["id"]), name=name, key_prefix=prefix, key_hash=h)
+    return {
+        "id": kid,
+        "name": name,
+        "key_prefix": prefix,
+        "key": full,
+        "user": _user_summary(u),
+        "warning": "请妥善保存，此 key 仅在创建时显示一次。",
+    }
 
 
 @router.delete("/api-keys/{key_id}")
