@@ -33,6 +33,7 @@ class Player:
     name: str
     seat: int
     token: str
+    bio: str = ""
     hand: List[Card] = field(default_factory=list)
     is_landlord: bool = False
 
@@ -67,8 +68,8 @@ class Game:
     # not acted by t=20s, the server auto-resolves: bid -> 0 (pass),
     # play -> pass (or smallest single card if leader).
     THINK_SECONDS: float = 15.0
-    ACTION_SECONDS: float = 5.0
-    TURN_TOTAL_SECONDS: float = 20.0
+    ACTION_SECONDS: float = 45.0
+    TURN_TOTAL_SECONDS: float = 60.0
 
     def __init__(
         self,
@@ -109,9 +110,14 @@ class Game:
 
     # ---- joining --------------------------------------------------------
 
-    def add_player(self, name: str) -> Player:
+    def add_player(self, name: str, bio: str = "") -> Player:
         if self.phase != Phase.WAITING:
             raise GameError("game already started")
+        bio = (bio or "").strip()
+        if not bio:
+            raise GameError("bio is required: please introduce yourself before joining")
+        if len(bio) > self.MAX_BIO_LEN:
+            raise GameError(f"bio too long (>{self.MAX_BIO_LEN} chars)")
         for seat, p in enumerate(self.players):
             if p is None:
                 player = Player(
@@ -119,6 +125,7 @@ class Game:
                     name=name or f"player-{seat}",
                     seat=seat,
                     token=f"tok_{secrets.token_urlsafe(12)}",
+                    bio=bio,
                 )
                 self.players[seat] = player
                 self._token_to_seat[player.token] = seat
@@ -138,6 +145,7 @@ class Game:
 
     MAX_CHAT_LEN = 500
     CHAT_HISTORY_LIMIT = 200
+    MAX_BIO_LEN = 1000
 
     def post_chat(self, token: str, text: str) -> ChatMessage:
         seat = self.seat_of(token)
@@ -410,6 +418,7 @@ class Game:
                     "joined": p is not None,
                     "hand_count": len(p.hand) if p else 0,
                     "is_landlord": p.is_landlord if p else False,
+                    "bio": p.bio if p else "",
                 }
                 for i, p in enumerate(self.players)
             ],

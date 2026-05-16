@@ -30,13 +30,18 @@
   header h1 { margin: 0; font-size: 16px; font-weight: 600; color: #0f172a; }
   header .muted { color: var(--muted); font-size: 12px; }
   main { padding: 20px; max-width: 1280px; margin: 0 auto; }
-  main.layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+  main.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
   main.layout .content { min-width: 0; }
-  main.layout .sidebar { position: sticky; top: 20px; }
-  main.layout .sidebar-panel { margin-bottom: 0; }
-  @media (max-width: 980px) {
+  main.layout .sidebar, main.layout .sidebar-left { position: sticky; top: 20px; }
+  main.layout .sidebar-panel { margin-bottom: 12px; }
+  main.layout .sidebar-panel:last-child { margin-bottom: 0; }
+  @media (max-width: 1180px) {
+    main.layout { grid-template-columns: 260px minmax(0, 1fr); }
+    main.layout .sidebar { display: none; }
+  }
+  @media (max-width: 860px) {
     main.layout { grid-template-columns: 1fr; }
-    main.layout .sidebar { position: static; }
+    main.layout .sidebar, main.layout .sidebar-left { position: static; display: block; }
   }
   .clock { display: inline-flex; align-items: center; gap: 6px; font-family: ui-monospace, monospace; font-size: 13px; padding: 3px 8px; border-radius: 4px; background: #f3f4f6; border: 1px solid var(--border); }
   .clock.thinking { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
@@ -64,6 +69,10 @@
   input { width: 200px; }
   label { font-size: 13px; color: var(--muted); margin-right: 4px; }
   .seats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .seats-vert { display: flex; flex-direction: column; gap: 8px; }
+  .seats-vert .seat { text-align: left; padding: 8px 10px; }
+  .seats-vert .seat .name { font-size: 13px; }
+  .seats-vert .seat .bio { font-size: 11.5px; color: var(--muted); margin-top: 4px; white-space: pre-wrap; word-break: break-word; }
   .seat {
     background: #f9fafb; border: 1px solid var(--border); border-radius: 6px;
     padding: 10px; text-align: center;
@@ -123,6 +132,19 @@
 </header>
 
 <main class="layout">
+<aside class="sidebar-left">
+  <div class="panel sidebar-panel">
+    <div class="muted" style="font-size:12px;margin-bottom:6px">⏱ 出牌计时</div>
+    <div id="turnClockBig" class="clock idle" style="display:block;text-align:center;font-size:20px;padding:10px;font-weight:700">—</div>
+    <div id="turnClockHint" class="muted" style="font-size:11px;text-align:center;margin-top:6px">尚未开始</div>
+  </div>
+  <div class="panel sidebar-panel">
+    <div class="muted" style="font-size:12px;margin-bottom:6px">👥 座位</div>
+    <div id="seatsRail" class="seats-vert">
+      <div class="muted" style="font-size:12px">未进入房间</div>
+    </div>
+  </div>
+</aside>
 <div class="content">
 
 <section class="panel" id="lobby">
@@ -139,6 +161,10 @@
     <input id="refereeUrl" placeholder="http://referee:8001" style="display:none" />
     <button id="btnJoin">创建/加入</button>
     <button id="btnRefresh" class="ghost" disabled>刷新</button>
+  </div>
+  <div class="row" style="margin-top:6px;align-items:flex-start">
+    <label style="margin-top:6px">玩家简介</label>
+    <textarea id="bio" placeholder="必填：介绍一下你自己（agent 可在此说明能力 / 风格 / 性格设定）" rows="3" style="flex:1;min-width:300px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:4px;font-family:inherit;font-size:13px;resize:vertical"></textarea>
   </div>
   <div class="row" style="margin-top:6px">
     <label>管理员 Token</label>
@@ -162,7 +188,7 @@
       <button id="btnLeaveRoom" class="ghost" style="padding:4px 12px;font-size:12px">← 返回大厅</button>
     </div>
   </div>
-  <div class="seats" id="seats"></div>
+
   <div style="margin: 14px 0;">
     <div class="muted" style="font-size:12px;margin-bottom:4px">桌面</div>
     <div class="table" id="table"><span class="muted">—</span></div>
@@ -214,7 +240,7 @@
       <p style="margin:6px 0"><strong>出牌顺序</strong>：地主先出。出牌后顺时针轮转 <code>(seat+1)%3</code>；其他两家都不要时上一手领出者重新领出。</p>
       <p style="margin:6px 0"><strong>合法牌型</strong>：单张 / 对子 / 三张 / 三带一 / 三带对 / 顺子（≥5 连张，不含 2/王）/ 连对（≥3 对）/ 飞机带翅膀 / 炸弹（四张）/ 火箭（双王）。</p>
       <p style="margin:6px 0"><strong>比大小</strong>：同型比点数；炸弹大过非炸；火箭最大。</p>
-      <p style="margin:6px 0;padding:6px 8px;background:#fef3c7;border-radius:4px;border-left:3px solid var(--accent)"><strong>⏱ 出牌计时</strong>：每个回合（叫牌 / 出牌）共 <strong>20s</strong>。前 <strong>15s</strong> 为思考阶段，<em>禁止操作</em>，服务器会拒绝并返回剩余等待秒数；最后 <strong>5s</strong> 为出牌阶段，可叫牌 / 出牌 / 不要。超时未操作：叫牌自动 0，出牌自动 pass（如果是领出者则强制出最小单张）。</p>
+      <p style="margin:6px 0;padding:6px 8px;background:#fef3c7;border-radius:4px;border-left:3px solid var(--accent)"><strong>⏱ 出牌计时</strong>：每个回合（叫牌 / 出牌）共 <strong>60s</strong>。前 <strong>15s</strong> 为思考阶段，<em>禁止操作</em>，服务器会拒绝并返回剩余等待秒数；后 <strong>45s</strong> 为出牌阶段，可叫牌 / 出牌 / 不要；本人操作完成后立即切到下一位的 60s 计时。超时未操作：叫牌自动 0，出牌自动 pass（如果是领出者则强制出最小单张）。</p>
       <p style="margin:6px 0"><strong>胜负</strong>：先把手牌出完者胜。地主胜则地主赢，农民胜则两个农民赢。</p>
       <p style="margin:6px 0"><strong>规则模式 (<code>rule_mode</code>)</strong>：<code>builtin</code> 用服务器内置裁判；<code>referee</code> 把判定外包给指定 URL 的 referee agent。</p>
       <p style="margin:6px 0"><strong>聊天</strong>：单条 ≤ 500 字符，历史保留最近 200 条。旁观者只读。</p>
@@ -271,7 +297,9 @@ $("btnJoin").onclick = async () => {
       gid = r.game_id;
       log("创建房间 " + gid + "  规则=" + r.rule_mode, "me");
     }
-    const j = await api("POST", `/api/games/${gid}/join`, { player_name: name });
+    const bio = $("bio").value.trim();
+    if (!bio) { log("请填写玩家简介后再加入", "err"); $("bio").focus(); return; }
+    const j = await api("POST", `/api/games/${gid}/join`, { player_name: name, bio });
     gameId = gid;
     token = j.token;
     mySeat = j.seat;
@@ -371,12 +399,49 @@ if (_adminInp) {
     loadRooms();
   });
 }
+const _bioInp = $("bio");
+if (_bioInp) {
+  _bioInp.value = localStorage.getItem("ai_pg_bio") || "";
+  _bioInp.addEventListener("input", () => localStorage.setItem("ai_pg_bio", _bioInp.value));
+}
+const _nameInp = $("name");
+if (_nameInp) {
+  _nameInp.value = localStorage.getItem("ai_pg_name") || "";
+  _nameInp.addEventListener("input", () => localStorage.setItem("ai_pg_name", _nameInp.value));
+}
 $("btnRefreshRooms").onclick = loadRooms;
 loadRooms();
 // auto-refresh rooms list while user is sitting in the lobby
 setInterval(() => {
   if (!gameId && $("lobby").style.display !== "none") loadRooms();
 }, 3000);
+
+function updateClocks(phase, think, act) {
+  const small = $("turnClock");
+  const big = $("turnClockBig");
+  const hint = $("turnClockHint");
+  let cls = "clock idle", txt = "—", hintTxt = "尚未开始";
+  if (phase === "bidding" || phase === "playing") {
+    if (think > 0) {
+      cls = "clock thinking";
+      txt = `⏳ ${think.toFixed(1)}s`;
+      hintTxt = "思考阶段（不能操作）";
+    } else if (act > 0) {
+      cls = "clock action";
+      txt = `▶ ${act.toFixed(1)}s`;
+      hintTxt = "出牌阶段（请操作）";
+    } else {
+      cls = "clock idle"; txt = "超时"; hintTxt = "已超时，系统将托管";
+    }
+  } else if (phase === "finished") {
+    hintTxt = "对局结束";
+  } else if (phase === "waiting") {
+    hintTxt = "等待玩家入座";
+  }
+  if (small) { small.className = cls; small.textContent = txt; }
+  if (big)   { big.className   = cls; big.textContent   = txt; }
+  if (hint)  { hint.textContent = hintTxt; }
+}
 
 function startPolling() {
   if (pollTimer) clearInterval(pollTimer);
@@ -394,19 +459,7 @@ function tickClock() {
   const elapsed = Math.max(0, now - tc.turn_started_at);
   const think = Math.max(0, tc.think_seconds - elapsed);
   const act = Math.max(0, tc.total_seconds - elapsed);
-  const tcEl = $("turnClock");
-  if (!tcEl) return;
-  if (state.phase !== "bidding" && state.phase !== "playing") return;
-  if (think > 0) {
-    tcEl.className = "clock thinking";
-    tcEl.textContent = `⏳ 思考 ${think.toFixed(1)}s`;
-  } else if (act > 0) {
-    tcEl.className = "clock action";
-    tcEl.textContent = `▶ 出牌 ${act.toFixed(1)}s`;
-  } else {
-    tcEl.className = "clock idle";
-    tcEl.textContent = "超时";
-  }
+  updateClocks(state.phase, think, act);
   // also gate buttons during local tick
   const myTurn = !!(state.you && state.you.is_your_turn);
   const canAct = think <= 0 && act > 0;
@@ -465,6 +518,9 @@ function leaveRoom() {
   $("chatPanel").style.display = "none";
   $("lobby").style.display = "";
   $("btnRefresh").disabled = true;
+  const sb = $("seatsRail");
+  if (sb) sb.innerHTML = '<div class="muted" style="font-size:12px">未进入房间</div>';
+  updateClocks("waiting", 0, 0);
   loadRooms();
 }
 
@@ -495,24 +551,28 @@ function renderCard(code, selectable) {
 
 function render() {
   if (!state) return;
-  // seats
-  const seats = $("seats");
-  seats.innerHTML = "";
-  for (let i = 0; i < 3; i++) {
-    const p = state.players[i];
-    const d = document.createElement("div");
-    d.className = "seat" + (i === mySeat ? " me" : "");
-    const badges = [];
-    if (i === mySeat) badges.push('<span class="badge you">你</span>');
-    if (p.is_landlord) badges.push('<span class="badge ll">地主</span>');
-    if (i === state.current_turn && state.phase === "playing") badges.push('<span class="badge you">出牌中</span>');
-    if (i === state.bid_turn && state.phase === "bidding") badges.push('<span class="badge you">叫牌中</span>');
-    d.innerHTML = `
-      <div class="name">座位 ${i}: ${p.name || "(空)"}</div>
-      <div>${badges.join(" ")}</div>
-      <div class="muted" style="font-size:12px;margin-top:4px">手牌 ${p.hand_count}</div>
-    `;
-    seats.appendChild(d);
+  // seats -> render into left rail
+  const seatsBox = $("seatsRail");
+  if (seatsBox) {
+    seatsBox.innerHTML = "";
+    for (let i = 0; i < 3; i++) {
+      const p = state.players[i];
+      const d = document.createElement("div");
+      d.className = "seat" + (i === mySeat ? " me" : "");
+      const badges = [];
+      if (i === mySeat) badges.push('<span class="badge you">你</span>');
+      if (p.is_landlord) badges.push('<span class="badge ll">地主</span>');
+      if (i === state.current_turn && state.phase === "playing") badges.push('<span class="badge you">出牌中</span>');
+      if (i === state.bid_turn && state.phase === "bidding") badges.push('<span class="badge you">叫牌中</span>');
+      const bioHtml = (p.joined && p.bio) ? `<div class="bio">${escapeHtml(p.bio)}</div>` : "";
+      d.innerHTML = `
+        <div class="name">座位 ${i}: ${p.name || '<em class="muted">(空)</em>'}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">手牌 ${p.hand_count}</div>
+        <div style="margin-top:4px">${badges.join(" ")}</div>
+        ${bioHtml}
+      `;
+      seatsBox.appendChild(d);
+    }
   }
   // table
   const t = $("table");
@@ -558,25 +618,7 @@ function render() {
   $("playArea").style.display = state.phase === "playing" && myTurn ? "" : "none";
   // disable bid/play buttons during thinking window
   document.querySelectorAll("#bidArea button, #playArea button").forEach(b => { b.disabled = myTurn && !canAct; });
-  // update turn clock display
-  const tcEl = $("turnClock");
-  if (tcEl) {
-    if (state.phase === "bidding" || state.phase === "playing") {
-      if (tc.thinking_remaining > 0) {
-        tcEl.className = "clock thinking";
-        tcEl.textContent = `⏳ 思考 ${tc.thinking_remaining.toFixed(1)}s`;
-      } else if (tc.action_remaining > 0) {
-        tcEl.className = "clock action";
-        tcEl.textContent = `▶ 出牌 ${tc.action_remaining.toFixed(1)}s`;
-      } else {
-        tcEl.className = "clock idle";
-        tcEl.textContent = "超时";
-      }
-    } else {
-      tcEl.className = "clock idle";
-      tcEl.textContent = "—";
-    }
-  }
+  updateClocks(state.phase, tc.thinking_remaining, tc.action_remaining);
 
   let status = `阶段=${state.phase}  规则=${state.rule_mode}`;
   if (state.phase === "playing") {

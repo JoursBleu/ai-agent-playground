@@ -56,6 +56,7 @@ class CreateGameResp(BaseModel):
 
 class JoinReq(BaseModel):
     player_name: str = ""
+    bio: str = ""
 
 
 class JoinResp(BaseModel):
@@ -142,7 +143,7 @@ def list_games() -> dict:
 def join(game_id: str, req: JoinReq) -> JoinResp:
     game = _get_game(game_id)
     try:
-        p = game.add_player(req.player_name)
+        p = game.add_player(req.player_name, req.bio)
     except GameError as e:
         raise _err(e)
     return JoinResp(player_id=p.player_id, seat=p.seat, token=p.token)
