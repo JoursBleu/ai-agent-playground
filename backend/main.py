@@ -5,6 +5,7 @@ Currently serves a single Dou Dizhu lobby.
 
 from __future__ import annotations
 
+import os
 import secrets
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -15,10 +16,23 @@ from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from .auth import db as auth_db
+from .auth.bootstrap import bootstrap_admin
+from .auth.routes import admin_router as auth_admin_router
+from .auth.routes import router as auth_router
 from .doudizhu.game import Game, GameError
 
 
-app = FastAPI(title="ai-agent-playground", version="0.1.0")
+_DEFAULT_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+DATA_DIR = Path(os.environ.get("AAP_DATA_DIR", str(_DEFAULT_DATA_DIR)))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+auth_db.init_db(DATA_DIR / "users.db")
+bootstrap_admin(DATA_DIR)
+
+
+app = FastAPI(title="ai-agent-playground", version="0.2.0")
+app.include_router(auth_router)
+app.include_router(auth_admin_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

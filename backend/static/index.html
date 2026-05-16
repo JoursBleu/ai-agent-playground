@@ -128,6 +128,49 @@
     font-size: 13px; color: var(--muted); margin-top: 8px;
   }
   .turn { color: var(--good); font-weight: 600; }
+
+  .userbar { display:flex; align-items:center; gap:8px; }
+  .userbar .anon-btn { padding:5px 12px; font-size:13px; }
+  .userbar .user-chip { position:relative; }
+  .userbar .user-chip-btn { display:flex; align-items:center; gap:6px; padding:5px 10px; background:#f3f4f6; color:var(--text); border:1px solid var(--border-strong); border-radius:6px; cursor:pointer; font-size:13px; }
+  .userbar .user-chip-btn:hover { background:#e5e7eb; }
+  .userbar .user-chip-btn .admin-dot { width:6px; height:6px; border-radius:50%; background:var(--accent); }
+  .userbar .menu { position:absolute; right:0; top:calc(100% + 4px); background:#fff; border:1px solid var(--border); border-radius:6px; box-shadow:0 4px 12px rgba(0,0,0,0.08); min-width:180px; z-index:60; padding:4px 0; display:none; }
+  .userbar .menu.open { display:block; }
+  .userbar .menu button { display:block; width:100%; text-align:left; background:transparent; color:var(--text); border:0; padding:8px 14px; font-size:13px; font-weight:500; border-radius:0; }
+  .userbar .menu button:hover { background:#f3f4f6; }
+  .modal-bg { position:fixed; inset:0; background:rgba(15,23,42,0.55); display:none; align-items:flex-start; justify-content:center; padding-top:60px; z-index:100; }
+  .modal-bg.open { display:flex; }
+  .modal { background:#fff; border-radius:8px; box-shadow:0 12px 32px rgba(0,0,0,0.18); width:min(520px, calc(100vw - 32px)); max-height:calc(100vh - 80px); overflow:auto; }
+  .modal header { padding:14px 18px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; background:#fff; box-shadow:none; }
+  .modal header h2 { margin:0; font-size:15px; font-weight:600; color:#0f172a; }
+  .modal header .x { background:transparent; color:var(--muted); border:0; font-size:20px; cursor:pointer; padding:0 4px; font-weight:400; }
+  .modal .body { padding:16px 18px; }
+  .modal .body label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; margin-right:0; }
+  .modal .body input { width:100%; }
+  .modal .body .field { margin-bottom:10px; }
+  .modal .body .field .pw-wrap { position:relative; }
+  .modal .body .field .pw-wrap input { padding-right:36px; }
+  .modal .body .field .pw-eye { position:absolute; right:6px; top:50%; transform:translateY(-50%); background:transparent; border:0; color:var(--muted); cursor:pointer; font-size:14px; padding:2px 6px; font-weight:400; }
+  .modal .body .field .pw-eye:hover { color:var(--text); }
+  .modal .body .err { color:var(--bad); font-size:12px; margin:6px 0 0; min-height:16px; }
+  .modal .footer { padding:12px 18px; border-top:1px solid var(--border); display:flex; justify-content:space-between; gap:8px; }
+  .modal .footer .right { display:flex; gap:8px; }
+  .modal .footer .alt { background:transparent; color:var(--accent); border:0; padding:6px 0; font-size:13px; font-weight:500; cursor:pointer; }
+  .modal .footer .alt:hover { text-decoration:underline; }
+  .key-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px; }
+  .key-row:last-child { border-bottom:none; }
+  .key-row .meta { color:var(--muted); font-size:11px; margin-top:2px; }
+  .key-row .revoke { background:transparent; color:var(--bad); border:1px solid #fca5a5; padding:3px 10px; font-size:12px; }
+  .key-new { background:#fef3c7; border:1px solid #fcd34d; border-radius:4px; padding:8px 10px; font-family:ui-monospace,monospace; font-size:12px; word-break:break-all; margin-bottom:10px; }
+  .user-row { display:grid; grid-template-columns: 40px 1fr auto; gap:8px; align-items:center; padding:6px 0; border-bottom:1px solid var(--border); font-size:13px; }
+  .user-row:last-child { border-bottom:none; }
+  .user-row .badges { font-size:11px; }
+  .user-row .badge { display:inline-block; padding:1px 6px; border-radius:3px; margin-right:4px; }
+  .user-row .badge.admin { background:#d97706; color:white; }
+  .user-row .badge.banned { background:var(--bad); color:white; }
+  .user-row .acts button { padding:3px 8px; font-size:11px; font-weight:500; }
+
 </style>
 </head>
 <body>
@@ -135,7 +178,11 @@
   <h1>🀫 ai-agent-playground</h1>
   <span class="muted">Agent 友好的 HTTP API · 规则可插拔</span>
   <span style="flex:1"></span>
-  <a href="/docs-agent" style="color:var(--accent);text-decoration:none;font-size:13px;font-weight:600">📘 Agent API</a>
+  <a href="/docs-agent" style="color:var(--accent);text-decoration:none;font-size:13px;font-weight:600;margin-right:6px">📘 Agent API</a>
+  <div id="userbar" class="userbar">
+    <button id="btnShowLogin" class="ghost anon-btn">登录</button>
+    <button id="btnShowRegister" class="anon-btn">注册</button>
+  </div>
 </header>
 
 <main class="layout">
@@ -266,8 +313,246 @@ let pollTimer = null;
 let lastChatTs = 0;
 let spectatorToken = null;
 let clockTimer = null;
+let currentUser = null;
 
 const $ = (id) => document.getElementById(id);
+
+// ---- auth modal helpers ---------------------------------------------------
+function openModal(name) {
+  document.querySelectorAll('.modal-bg').forEach(m => m.classList.remove('open'));
+  const el = document.querySelector(`.modal-bg[data-mod="${name}"]`);
+  if (el) el.classList.add('open');
+  if (name === 'account') refreshAccount();
+  if (name === 'admin') refreshAdmin();
+}
+function closeModals() {
+  document.querySelectorAll('.modal-bg').forEach(m => m.classList.remove('open'));
+}
+document.addEventListener('click', (e) => {
+  const t = e.target;
+  if (t.matches('[data-close]') || t.matches('.modal-bg')) {
+    if (t.matches('.modal-bg') && t !== e.currentTarget) {} // ignore inner
+    if (t === t.closest('.modal-bg') || t.matches('[data-close]')) closeModals();
+  }
+  if (t.matches('[data-switch]')) openModal(t.dataset.switch);
+  if (t.matches('[data-eye]')) {
+    const inp = document.getElementById(t.dataset.eye);
+    if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
+  }
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModals(); });
+
+function renderUserbar() {
+  const bar = $('userbar');
+  if (!bar) return;
+  if (currentUser) {
+    const admin = currentUser.is_admin;
+    bar.innerHTML = `
+      <div class="user-chip">
+        <button class="user-chip-btn" id="userChipBtn">
+          ${admin ? '<span class="admin-dot" title="管理员"></span>' : ''}
+          <span>${escapeHtml(currentUser.username)}</span>
+          <span style="color:var(--muted);font-size:11px">▼</span>
+        </button>
+        <div id="userMenu" class="menu">
+          <button data-act="account">我的账号 / API Keys</button>
+          ${admin ? '<button data-act="admin">用户管理</button>' : ''}
+          <button data-act="logout">登出</button>
+        </div>
+      </div>`;
+    $('userChipBtn').onclick = (e) => { e.stopPropagation(); $('userMenu').classList.toggle('open'); };
+    document.addEventListener('click', () => { const m = $('userMenu'); if (m) m.classList.remove('open'); }, { once: true });
+    bar.querySelectorAll('.menu button').forEach(b => {
+      b.onclick = (e) => {
+        e.stopPropagation();
+        $('userMenu').classList.remove('open');
+        const act = b.dataset.act;
+        if (act === 'logout') doLogout();
+        else openModal(act);
+      };
+    });
+  } else {
+    bar.innerHTML = `
+      <button id="btnShowLogin" class="ghost anon-btn">登录</button>
+      <button id="btnShowRegister" class="anon-btn">注册</button>`;
+    $('btnShowLogin').onclick = () => openModal('login');
+    $('btnShowRegister').onclick = () => openModal('register');
+  }
+}
+
+async function loadMe() {
+  try {
+    const r = await api('GET', '/api/auth/me');
+    currentUser = r.user;
+  } catch { currentUser = null; }
+  renderUserbar();
+}
+
+async function doLogin() {
+  $('loginErr').textContent = '';
+  const login = $('loginLogin').value.trim();
+  const password = $('loginPassword').value;
+  if (!login || !password) { $('loginErr').textContent = '请填写用户名和密码'; return; }
+  try {
+    const r = await api('POST', '/api/auth/login', { login, password });
+    currentUser = r.user;
+    closeModals();
+    renderUserbar();
+    log('已登录: ' + currentUser.username, 'me');
+    // Prefill nickname.
+    if ($('name') && !$('name').value) $('name').value = currentUser.username;
+  } catch (e) { $('loginErr').textContent = e.message; }
+}
+
+async function doRegister() {
+  $('regErr').textContent = '';
+  const username = $('regUsername').value.trim();
+  const email = $('regEmail').value.trim();
+  const password = $('regPassword').value;
+  const password2 = $('regPassword2').value;
+  if (!username || !password) { $('regErr').textContent = '请填写用户名和密码'; return; }
+  if (password !== password2) { $('regErr').textContent = '两次输入的密码不一致'; return; }
+  try {
+    const r = await api('POST', '/api/auth/register', { username, password, email: email || null });
+    currentUser = r.user;
+    closeModals();
+    renderUserbar();
+    log('注册成功并已登录: ' + currentUser.username, 'me');
+    if ($('name') && !$('name').value) $('name').value = currentUser.username;
+  } catch (e) { $('regErr').textContent = e.message; }
+}
+
+async function doLogout() {
+  try { await api('POST', '/api/auth/logout'); } catch {}
+  currentUser = null;
+  renderUserbar();
+  log('已登出');
+}
+
+async function refreshAccount() {
+  if (!currentUser) { openModal('login'); return; }
+  $('acctInfo').textContent = `${currentUser.username}${currentUser.email ? '  ·  ' + currentUser.email : ''}${currentUser.is_admin ? '  ·  管理员' : ''}`;
+  $('cpErr').textContent = '';
+  $('cpOld').value = ''; $('cpNew').value = '';
+  $('newKeyName').value = ''; $('newKeyOut').innerHTML = '';
+  try {
+    const r = await api('GET', '/api/auth/api-keys');
+    renderKeys(r.keys);
+  } catch (e) { $('keyList').innerHTML = '<div class="err">' + escapeHtml(e.message) + '</div>'; }
+}
+
+function renderKeys(keys) {
+  if (!keys.length) { $('keyList').innerHTML = '<div style="color:var(--muted);font-size:12px">尚无 API Key</div>'; return; }
+  $('keyList').innerHTML = keys.map(k => {
+    const revoked = !!k.revoked_at;
+    const created = new Date(k.created_at * 1000).toLocaleString();
+    const last = k.last_used_at ? new Date(k.last_used_at * 1000).toLocaleString() : '从未使用';
+    return `<div class="key-row" style="${revoked ? 'opacity:0.5' : ''}">
+      <div>
+        <div><b>${escapeHtml(k.name)}</b> <span style="color:var(--muted);font-family:ui-monospace,monospace">${escapeHtml(k.key_prefix)}…</span>${revoked ? ' <span style="color:var(--bad);font-size:11px">[已撤销]</span>' : ''}</div>
+        <div class="meta">创建 ${created} · 最后使用 ${last}</div>
+      </div>
+      ${revoked ? '' : `<button class="revoke" data-revoke="${k.id}">撤销</button>`}
+    </div>`;
+  }).join('');
+  $('keyList').querySelectorAll('[data-revoke]').forEach(b => {
+    b.onclick = async () => {
+      if (!confirm('撤销此 API Key？该 key 立即失效。')) return;
+      try { await api('DELETE', '/api/auth/api-keys/' + b.dataset.revoke); await refreshAccount(); } catch (e) { alert(e.message); }
+    };
+  });
+}
+
+async function doCreateKey() {
+  const name = $('newKeyName').value.trim();
+  if (!name) { alert('请填写 key 名称'); return; }
+  try {
+    const r = await api('POST', '/api/auth/api-keys', { name });
+    $('newKeyOut').innerHTML = `<div class="key-new"><div style="margin-bottom:4px;color:#92400e;font-weight:600">⚠ ${escapeHtml(r.warning)}</div><div>${escapeHtml(r.key)}</div></div>`;
+    $('newKeyName').value = '';
+    const list = await api('GET', '/api/auth/api-keys');
+    renderKeys(list.keys);
+  } catch (e) { alert(e.message); }
+}
+
+async function doChangePassword() {
+  $('cpErr').textContent = '';
+  const old_password = $('cpOld').value;
+  const new_password = $('cpNew').value;
+  if (!old_password || !new_password) { $('cpErr').textContent = '请填写所有字段'; return; }
+  try {
+    await api('POST', '/api/auth/change-password', { old_password, new_password });
+    $('cpErr').style.color = 'var(--good)';
+    $('cpErr').textContent = '已修改成功';
+    setTimeout(() => { $('cpErr').style.color = ''; $('cpErr').textContent = ''; }, 2500);
+    $('cpOld').value = ''; $('cpNew').value = '';
+  } catch (e) { $('cpErr').textContent = e.message; }
+}
+
+async function refreshAdmin() {
+  if (!currentUser || !currentUser.is_admin) { closeModals(); return; }
+  try {
+    const r = await api('GET', '/api/admin/users');
+    const rows = r.users.map(u => `
+      <div class="user-row" data-uid="${u.id}">
+        <div style="color:var(--muted);font-family:ui-monospace,monospace">#${u.id}</div>
+        <div>
+          <div><b>${escapeHtml(u.username)}</b>${u.email ? ' <span style="color:var(--muted);font-size:12px">'+escapeHtml(u.email)+'</span>' : ''}</div>
+          <div class="badges">
+            ${u.is_admin ? '<span class="badge admin">admin</span>' : ''}
+            ${u.is_banned ? '<span class="badge banned">banned'+(u.banned_reason?': '+escapeHtml(u.banned_reason):'')+'</span>' : ''}
+            <span style="color:var(--muted)">创建 ${new Date(u.created_at*1000).toLocaleDateString()}</span>
+          </div>
+        </div>
+        <div class="acts">
+          ${u.is_banned ? '<button data-act="unban">解封</button>' : (u.is_admin ? '' : '<button class="ghost" data-act="ban">封禁</button>')}
+          ${u.is_admin ? (u.id===currentUser.id?'' : '<button class="ghost" data-act="demote">取消管理员</button>') : '<button class="ghost" data-act="promote">设为管理员</button>'}
+          <button class="ghost" data-act="logout-all">下线全部</button>
+        </div>
+      </div>`).join('');
+    $('adminBody').innerHTML = rows || '<div style="color:var(--muted)">暂无用户</div>';
+    $('adminBody').querySelectorAll('.user-row').forEach(row => {
+      const uid = row.dataset.uid;
+      row.querySelectorAll('[data-act]').forEach(b => {
+        b.onclick = async () => {
+          const act = b.dataset.act;
+          try {
+            if (act === 'ban') {
+              const reason = prompt('封禁理由（可选）') || '';
+              await api('POST', `/api/admin/users/${uid}/ban`, { reason });
+            } else if (act === 'unban') await api('POST', `/api/admin/users/${uid}/unban`, {});
+            else if (act === 'promote') await api('POST', `/api/admin/users/${uid}/make-admin`, {});
+            else if (act === 'demote') await api('POST', `/api/admin/users/${uid}/remove-admin`, {});
+            else if (act === 'logout-all') await api('POST', `/api/admin/users/${uid}/logout-all`, {});
+            await refreshAdmin();
+          } catch (e) { alert(e.message); }
+        };
+      });
+    });
+  } catch (e) { $('adminBody').innerHTML = '<div class="err">'+escapeHtml(e.message)+'</div>'; }
+}
+
+// Bind submit buttons + Enter key.
+window.addEventListener('DOMContentLoaded', () => {
+  $('btnShowLogin')?.addEventListener('click', () => openModal('login'));
+  $('btnShowRegister')?.addEventListener('click', () => openModal('register'));
+  document.addEventListener('click', (e) => {
+    if (e.target.id === 'btnLoginSubmit') doLogin();
+    if (e.target.id === 'btnRegisterSubmit') doRegister();
+    if (e.target.id === 'btnChangePw') doChangePassword();
+    if (e.target.id === 'btnCreateKey') doCreateKey();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const open = document.querySelector('.modal-bg.open');
+    if (!open) return;
+    const mod = open.dataset.mod;
+    if (mod === 'login') doLogin();
+    else if (mod === 'register') doRegister();
+  });
+  loadMe();
+});
+
 
 function log(msg, cls = "") {
   const el = $("log");
@@ -779,5 +1064,58 @@ function _refreshChatInputState() {
 const _origRender = render;
 render = function() { _origRender(); _refreshChatInputState(); };
 </script>
+
+<div id="modalLogin" class="modal-bg" data-mod="login">
+  <div class="modal" role="dialog" aria-modal="true">
+    <header><h2>登录</h2><button class="x" data-close>×</button></header>
+    <div class="body">
+      <div class="field"><label>用户名或邮箱</label><input id="loginLogin" autocomplete="username" /></div>
+      <div class="field"><label>密码</label><div class="pw-wrap"><input id="loginPassword" type="password" autocomplete="current-password" /><button type="button" class="pw-eye" data-eye="loginPassword">👁</button></div></div>
+      <p class="err" id="loginErr"></p>
+    </div>
+    <div class="footer"><button class="alt" data-switch="register">没有账号？去注册</button><div class="right"><button class="ghost" data-close>取消</button><button id="btnLoginSubmit">登录</button></div></div>
+  </div>
+</div>
+<div id="modalRegister" class="modal-bg" data-mod="register">
+  <div class="modal" role="dialog" aria-modal="true">
+    <header><h2>注册</h2><button class="x" data-close>×</button></header>
+    <div class="body">
+      <div class="field"><label>用户名（2-31 位字母数字）</label><input id="regUsername" autocomplete="username" /></div>
+      <div class="field"><label>邮箱（可选）</label><input id="regEmail" type="email" autocomplete="email" /></div>
+      <div class="field"><label>密码（至少 8 位且含大写/小写/数字/特殊字符中至少 3 类）</label><div class="pw-wrap"><input id="regPassword" type="password" autocomplete="new-password" /><button type="button" class="pw-eye" data-eye="regPassword">👁</button></div></div>
+      <div class="field"><label>再次输入密码</label><div class="pw-wrap"><input id="regPassword2" type="password" autocomplete="new-password" /><button type="button" class="pw-eye" data-eye="regPassword2">👁</button></div></div>
+      <p class="err" id="regErr"></p>
+    </div>
+    <div class="footer"><button class="alt" data-switch="login">已有账号？去登录</button><div class="right"><button class="ghost" data-close>取消</button><button id="btnRegisterSubmit">注册</button></div></div>
+  </div>
+</div>
+<div id="modalAccount" class="modal-bg" data-mod="account">
+  <div class="modal" role="dialog" aria-modal="true">
+    <header><h2>我的账号</h2><button class="x" data-close>×</button></header>
+    <div class="body">
+      <div class="field"><label>用户</label><div id="acctInfo" style="font-size:13px"></div></div>
+      <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
+      <h3 style="margin:0 0 8px;font-size:13px;color:#0f172a">修改密码</h3>
+      <div class="field"><label>原密码</label><div class="pw-wrap"><input id="cpOld" type="password" /><button type="button" class="pw-eye" data-eye="cpOld">👁</button></div></div>
+      <div class="field"><label>新密码</label><div class="pw-wrap"><input id="cpNew" type="password" /><button type="button" class="pw-eye" data-eye="cpNew">👁</button></div></div>
+      <p class="err" id="cpErr"></p>
+      <div style="margin-bottom:14px"><button id="btnChangePw">提交修改</button></div>
+      <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
+      <h3 style="margin:0 0 8px;font-size:13px;color:#0f172a">API Keys（用于 AI agent）</h3>
+      <div style="display:flex;gap:6px;margin-bottom:8px"><input id="newKeyName" placeholder="key 名称，如 my-bot-1" style="flex:1"><button id="btnCreateKey">创建</button></div>
+      <div id="newKeyOut"></div>
+      <div id="keyList" style="font-size:13px"></div>
+    </div>
+    <div class="footer"><span></span><div class="right"><button class="ghost" data-close>关闭</button></div></div>
+  </div>
+</div>
+<div id="modalAdmin" class="modal-bg" data-mod="admin">
+  <div class="modal" style="width:min(720px, calc(100vw - 32px))">
+    <header><h2>用户管理</h2><button class="x" data-close>×</button></header>
+    <div class="body" id="adminBody">加载中…</div>
+    <div class="footer"><span></span><div class="right"><button class="ghost" data-close>关闭</button></div></div>
+  </div>
+</div>
+
 </body>
 </html>
