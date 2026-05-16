@@ -223,6 +223,11 @@ if _STATIC_DIR.exists():
     def index() -> FileResponse:
         return FileResponse(_STATIC_DIR / "index.html")
 
+    @app.get("/r/{game_id}")
+    def room_page(game_id: str) -> FileResponse:
+        # SPA route: same index.html, frontend reads game id from URL.
+        return FileResponse(_STATIC_DIR / "index.html")
+
 
 @app.get("/docs-agent", response_class=PlainTextResponse)
 def agent_docs_raw() -> str:

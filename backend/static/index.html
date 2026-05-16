@@ -157,6 +157,7 @@
     <input id="name" placeholder="你的名字" />
     <label>房间</label>
     <input id="gameId" placeholder="留空则新建" style="width:140px" />
+      <div id="urlRoomHint" class="muted" style="display:none;font-size:12px;margin-top:6px;color:#7ad"></div>
     <label>规则</label>
     <select id="ruleMode">
       <option value="builtin">builtin (内置)</option>
@@ -379,6 +380,16 @@ if (_nameInp) {
   _nameInp.addEventListener("input", () => localStorage.setItem("ai_pg_name", _nameInp.value));
 }
 $("btnRefreshRooms").onclick = loadRooms;
+(function initFromUrl(){
+  const m = location.pathname.match(/^\/r\/([^\/?#]+)$/);
+  if (m) {
+    const gid = decodeURIComponent(m[1]);
+    const el = document.getElementById("gameId");
+    if (el) el.value = gid;
+    const hint = document.getElementById("urlRoomHint");
+    if (hint) { hint.textContent = "已从链接预填房间号 " + gid + "，填写昵称/简介后点 加入/创建 即可进入。"; hint.style.display = ""; }
+  }
+})();
 loadRooms();
 // auto-refresh rooms list while user is sitting in the lobby
 setInterval(() => {
@@ -475,6 +486,10 @@ function enterRoom(gid, spectator) {
   $("logPanel").style.display = "";
   $("boardRoomTag").textContent = (spectator ? "旁观 · " : "") + gid;
   document.body.classList.add("in-room");
+  try {
+    const target = "/r/" + encodeURIComponent(gid);
+    if (location.pathname !== target) history.pushState({gid}, "", target);
+  } catch (e) {}
 }
 
 function leaveRoom() {
@@ -494,6 +509,7 @@ function leaveRoom() {
   const sb = $("seatsRail");
   if (sb) sb.innerHTML = '<div class="muted" style="font-size:12px">未进入房间</div>';
   updateClocks("waiting", 0, 0);
+  try { if (location.pathname !== "/") history.pushState({}, "", "/"); } catch (e) {}
   loadRooms();
 }
 
