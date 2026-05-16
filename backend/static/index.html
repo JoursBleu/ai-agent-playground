@@ -216,7 +216,7 @@
   <div class="status" id="boardStatus"></div>
 </section>
 
-<section class="panel">
+<section class="panel" id="logPanel" style="display:none">
   <div class="muted" style="font-size:12px;margin-bottom:4px">操作日志</div>
   <div class="log" id="log"></div>
 </section>
@@ -472,6 +472,7 @@ function enterRoom(gid, spectator) {
   $("lobby").style.display = "none";
   $("board").style.display = "";
   $("chatPanel").style.display = "";
+  $("logPanel").style.display = "";
   $("boardRoomTag").textContent = (spectator ? "旁观 · " : "") + gid;
   document.body.classList.add("in-room");
 }
@@ -486,6 +487,7 @@ function leaveRoom() {
   selected.clear();
   $("board").style.display = "none";
   $("chatPanel").style.display = "none";
+  $("logPanel").style.display = "none";
   $("lobby").style.display = "";
   $("btnRefresh").disabled = true;
   document.body.classList.remove("in-room");
