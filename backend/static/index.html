@@ -262,6 +262,7 @@ let selected = new Set();
 let pollTimer = null;
 let lastChatTs = 0;
 let spectatorToken = null;
+let clockTimer = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -451,7 +452,6 @@ function startPolling() {
   clockTimer = setInterval(tickClock, 250);
 }
 
-let clockTimer = null;
 function tickClock() {
   if (!state || !state.turn_clock || !state.turn_clock.turn_started_at) return;
   const tc = state.turn_clock;
