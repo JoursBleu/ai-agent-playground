@@ -29,7 +29,19 @@
   }
   header h1 { margin: 0; font-size: 16px; font-weight: 600; color: #0f172a; }
   header .muted { color: var(--muted); font-size: 12px; }
-  main { padding: 20px; max-width: 1100px; margin: 0 auto; }
+  main { padding: 20px; max-width: 1280px; margin: 0 auto; }
+  main.layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+  main.layout .content { min-width: 0; }
+  main.layout .sidebar { position: sticky; top: 20px; }
+  main.layout .sidebar-panel { margin-bottom: 0; }
+  @media (max-width: 980px) {
+    main.layout { grid-template-columns: 1fr; }
+    main.layout .sidebar { position: static; }
+  }
+  .clock { display: inline-flex; align-items: center; gap: 6px; font-family: ui-monospace, monospace; font-size: 13px; padding: 3px 8px; border-radius: 4px; background: #f3f4f6; border: 1px solid var(--border); }
+  .clock.thinking { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+  .clock.action { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
+  .clock.idle { color: var(--muted); }
   .panel {
     background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
     padding: 16px; margin-bottom: 16px;
@@ -110,7 +122,8 @@
   <a href="/docs-agent" style="color:var(--accent);text-decoration:none;font-size:13px;font-weight:600">📘 Agent API</a>
 </header>
 
-<main>
+<main class="layout">
+<div class="content">
 
 <section class="panel" id="lobby">
   <div class="row">
@@ -127,6 +140,10 @@
     <button id="btnJoin">创建/加入</button>
     <button id="btnRefresh" class="ghost" disabled>刷新</button>
   </div>
+  <div class="row" style="margin-top:6px">
+    <label>管理员 Token</label>
+    <input id="adminToken" placeholder="可选；用于解散他人房间" style="width:280px" type="password" />
+  </div>
   <div class="status" id="lobbyStatus"></div>
   <div style="margin-top:14px">
     <div class="row" style="justify-content:space-between;margin-bottom:6px">
@@ -139,8 +156,11 @@
 
 <section class="panel" id="board" style="display:none">
   <div class="row" style="justify-content:space-between;margin-bottom:10px">
-    <div><strong id="boardTitle">牌桌</strong> <span class="muted" id="boardRoomTag" style="font-size:12px;margin-left:6px"></span></div>
-    <button id="btnLeaveRoom" class="ghost" style="padding:4px 12px;font-size:12px">← 返回大厅</button>
+    <div><strong id="boardTitle">牌桌</strong> <span class="muted" id="boardRoomTag" style="font-size:12px;margin-left:6px"></span> <span id="turnClock" class="clock idle" style="margin-left:10px">—</span></div>
+    <div class="row" style="gap:6px">
+      <button id="btnDisband" class="ghost" style="padding:4px 12px;font-size:12px;display:none;color:var(--bad);border-color:#fca5a5">解散房间</button>
+      <button id="btnLeaveRoom" class="ghost" style="padding:4px 12px;font-size:12px">← 返回大厅</button>
+    </div>
   </div>
   <div class="seats" id="seats"></div>
   <div style="margin: 14px 0;">
@@ -184,6 +204,25 @@
   </div>
 </section>
 
+</div><!-- /.content -->
+<aside class="sidebar">
+  <div class="panel sidebar-panel">
+    <h3 style="margin:0 0 8px 0;font-size:14px">📜 游戏规则</h3>
+    <div style="font-size:12.5px;line-height:1.55;color:var(--text)">
+      <p style="margin:6px 0"><strong>玩家</strong>：3 人，斗地主标准 54 张牌。开局每人 17 张，留 3 张底牌；叫到地主者吃底牌。</p>
+      <p style="margin:6px 0"><strong>叫地主</strong>：随机一人先叫，依次叫 <code>0/1/2/3</code>；叫 3 立即结束；若全 0 则重新发牌。</p>
+      <p style="margin:6px 0"><strong>出牌顺序</strong>：地主先出。出牌后顺时针轮转 <code>(seat+1)%3</code>；其他两家都不要时上一手领出者重新领出。</p>
+      <p style="margin:6px 0"><strong>合法牌型</strong>：单张 / 对子 / 三张 / 三带一 / 三带对 / 顺子（≥5 连张，不含 2/王）/ 连对（≥3 对）/ 飞机带翅膀 / 炸弹（四张）/ 火箭（双王）。</p>
+      <p style="margin:6px 0"><strong>比大小</strong>：同型比点数；炸弹大过非炸；火箭最大。</p>
+      <p style="margin:6px 0;padding:6px 8px;background:#fef3c7;border-radius:4px;border-left:3px solid var(--accent)"><strong>⏱ 出牌计时</strong>：每个回合（叫牌 / 出牌）共 <strong>20s</strong>。前 <strong>15s</strong> 为思考阶段，<em>禁止操作</em>，服务器会拒绝并返回剩余等待秒数；最后 <strong>5s</strong> 为出牌阶段，可叫牌 / 出牌 / 不要。超时未操作：叫牌自动 0，出牌自动 pass（如果是领出者则强制出最小单张）。</p>
+      <p style="margin:6px 0"><strong>胜负</strong>：先把手牌出完者胜。地主胜则地主赢，农民胜则两个农民赢。</p>
+      <p style="margin:6px 0"><strong>规则模式 (<code>rule_mode</code>)</strong>：<code>builtin</code> 用服务器内置裁判；<code>referee</code> 把判定外包给指定 URL 的 referee agent。</p>
+      <p style="margin:6px 0"><strong>聊天</strong>：单条 ≤ 500 字符，历史保留最近 200 条。旁观者只读。</p>
+      <p style="margin:6px 0"><strong>解散房间</strong>：仅房主（首位加入者）或网站管理员可解散。解散后房间从大厅消失、所有未完成的回合作废。</p>
+      <p style="margin:10px 0 0 0"><a href="/docs-agent" style="color:var(--accent);text-decoration:none">📘 完整 Agent API →</a></p>
+    </div>
+  </div>
+</aside>
 </main>
 
 <script>
@@ -266,7 +305,11 @@ async function loadRooms() {
         ? `<button class="ghost" data-join="${g.game_id}" style="padding:2px 10px;font-size:12px">加入</button>`
         : `<button class="ghost" data-join="${g.game_id}" style="padding:2px 10px;font-size:12px" disabled>已满</button>`;
       const watchBtn = `<button class="ghost" data-watch="${g.game_id}" style="padding:2px 10px;font-size:12px;margin-left:4px">旁观</button>`;
-      const btn = joinBtn + watchBtn;
+      const adminTokVal = ($("adminToken") && $("adminToken").value.trim()) || "";
+      const adminBtn = adminTokVal
+        ? `<button class="ghost" data-disband="${g.game_id}" style="padding:2px 10px;font-size:12px;margin-left:4px;color:var(--bad);border-color:#fca5a5">解散</button>`
+        : "";
+      const btn = joinBtn + watchBtn + adminBtn;
       return `<div class="row" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 0">
         <div>
           <code style="font-size:12px">${g.game_id}</code>
@@ -284,12 +327,50 @@ async function loadRooms() {
     box.querySelectorAll('[data-watch]').forEach(b => {
       b.onclick = () => watchGame(b.dataset.watch);
     });
+    box.querySelectorAll('[data-disband]').forEach(b => {
+      b.onclick = async () => {
+        const gid = b.dataset.disband;
+        const adminTok = $("adminToken").value.trim();
+        if (!adminTok) { alert("请先在大厅填入管理员 Token"); return; }
+        if (!confirm("确认以管理员身份解散房间 " + gid + " ？")) return;
+        try {
+          await api("POST", `/api/games/${gid}/disband`, { admin_token: adminTok });
+          log("已解散房间 " + gid, "me");
+          loadRooms();
+        } catch (e) {
+          log("解散失败: " + e.message, "err");
+        }
+      };
+    });
   } catch (e) {
     box.innerHTML = '<span class="err">加载失败: ' + e.message + '</span>';
   }
 }
 
 $("btnLeaveRoom").onclick = () => leaveRoom();
+$("btnDisband").onclick = async () => {
+  if (!gameId) return;
+  if (!confirm("确认解散房间 " + gameId + " ？此操作不可撤销。")) return;
+  const body = {};
+  if (token) body.token = token;
+  const adminTok = $("adminToken").value.trim();
+  if (adminTok) body.admin_token = adminTok;
+  try {
+    const r = await api("POST", `/api/games/${gameId}/disband`, body);
+    log(`房间已解散 (${r.by})`, "me");
+    leaveRoom();
+  } catch (e) {
+    log("解散失败: " + e.message, "err");
+  }
+};
+const _adminInp = $("adminToken");
+if (_adminInp) {
+  _adminInp.value = localStorage.getItem("ai_pg_admin_token") || "";
+  _adminInp.addEventListener("input", () => {
+    localStorage.setItem("ai_pg_admin_token", _adminInp.value);
+    loadRooms();
+  });
+}
 $("btnRefreshRooms").onclick = loadRooms;
 loadRooms();
 // auto-refresh rooms list while user is sitting in the lobby
@@ -299,8 +380,37 @@ setInterval(() => {
 
 function startPolling() {
   if (pollTimer) clearInterval(pollTimer);
+  if (clockTimer) clearInterval(clockTimer);
   refresh();
   pollTimer = setInterval(refresh, 1500);
+  clockTimer = setInterval(tickClock, 250);
+}
+
+let clockTimer = null;
+function tickClock() {
+  if (!state || !state.turn_clock || !state.turn_clock.turn_started_at) return;
+  const tc = state.turn_clock;
+  const now = Date.now() / 1000;
+  const elapsed = Math.max(0, now - tc.turn_started_at);
+  const think = Math.max(0, tc.think_seconds - elapsed);
+  const act = Math.max(0, tc.total_seconds - elapsed);
+  const tcEl = $("turnClock");
+  if (!tcEl) return;
+  if (state.phase !== "bidding" && state.phase !== "playing") return;
+  if (think > 0) {
+    tcEl.className = "clock thinking";
+    tcEl.textContent = `⏳ 思考 ${think.toFixed(1)}s`;
+  } else if (act > 0) {
+    tcEl.className = "clock action";
+    tcEl.textContent = `▶ 出牌 ${act.toFixed(1)}s`;
+  } else {
+    tcEl.className = "clock idle";
+    tcEl.textContent = "超时";
+  }
+  // also gate buttons during local tick
+  const myTurn = !!(state.you && state.you.is_your_turn);
+  const canAct = think <= 0 && act > 0;
+  document.querySelectorAll("#bidArea button, #playArea button").forEach(b => { b.disabled = myTurn && !canAct; });
 }
 
 async function refresh() {
@@ -345,6 +455,7 @@ function enterRoom(gid, spectator) {
 
 function leaveRoom() {
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
   gameId = null;
   token = null;
   mySeat = -1;
@@ -429,10 +540,43 @@ function render() {
   if (!state.you) {
     h.innerHTML = '<span class="muted">（旁观模式，看不到手牌）</span>';
   }
+  // disband button visibility
+  const isOwner = state.you && state.owner_seat === state.you.seat;
+  const adminTok = ($("adminToken") && $("adminToken").value) || "";
+  $("btnDisband").style.display = (isOwner || adminTok) ? "" : "none";
+  $("btnDisband").textContent = isOwner ? "解散房间" : "解散房间 (管理员)";
+  // disbanded state
+  if (state.disbanded) {
+    $("turnClock").className = "clock idle";
+    $("turnClock").textContent = "已解散";
+  }
   // bid/play areas
   const myTurn = !!(state.you && state.you.is_your_turn);
+  const tc = state.turn_clock || {};
+  const canAct = !!tc.can_act;
   $("bidArea").style.display = state.phase === "bidding" && myTurn ? "" : "none";
   $("playArea").style.display = state.phase === "playing" && myTurn ? "" : "none";
+  // disable bid/play buttons during thinking window
+  document.querySelectorAll("#bidArea button, #playArea button").forEach(b => { b.disabled = myTurn && !canAct; });
+  // update turn clock display
+  const tcEl = $("turnClock");
+  if (tcEl) {
+    if (state.phase === "bidding" || state.phase === "playing") {
+      if (tc.thinking_remaining > 0) {
+        tcEl.className = "clock thinking";
+        tcEl.textContent = `⏳ 思考 ${tc.thinking_remaining.toFixed(1)}s`;
+      } else if (tc.action_remaining > 0) {
+        tcEl.className = "clock action";
+        tcEl.textContent = `▶ 出牌 ${tc.action_remaining.toFixed(1)}s`;
+      } else {
+        tcEl.className = "clock idle";
+        tcEl.textContent = "超时";
+      }
+    } else {
+      tcEl.className = "clock idle";
+      tcEl.textContent = "—";
+    }
+  }
 
   let status = `阶段=${state.phase}  规则=${state.rule_mode}`;
   if (state.phase === "playing") {

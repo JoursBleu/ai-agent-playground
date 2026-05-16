@@ -58,6 +58,18 @@ class GameError(Exception):
 
 
 class Game:
+    # ---- turn-clock rules (see docs/AGENT_API.md) ----
+    # Every turn (bidding or playing) gets TURN_TOTAL_SECONDS = 20s.
+    # The first THINK_SECONDS = 15s is a mandatory thinking window: any
+    # action submitted during this window is rejected with GameError
+    # "thinking phase, must wait until t=15s". Only the final
+    # ACTION_SECONDS = 5s is a valid action window. If the player has
+    # not acted by t=20s, the server auto-resolves: bid -> 0 (pass),
+    # play -> pass (or smallest single card if leader).
+    THINK_SECONDS: float = 15.0
+    ACTION_SECONDS: float = 5.0
+    TURN_TOTAL_SECONDS: float = 20.0
+
     def __init__(
         self,
         game_id: str,
@@ -86,6 +98,11 @@ class Game:
         self.history: List[TrickRecord] = []
         self.winner_seat: int = -1
         self.chat: List[ChatMessage] = []
+        self.turn_started_at: float = 0.0
+        self._timeout_auto: bool = False
+        self.owner_seat: int = -1       # first joiner becomes owner
+        self.disbanded: bool = False
+        self.disbanded_reason: str = ""
 
         self._rng = random.Random(seed)
         self.created_at = time.time()
@@ -105,6 +122,8 @@ class Game:
                 )
                 self.players[seat] = player
                 self._token_to_seat[player.token] = seat
+                if self.owner_seat < 0:
+                    self.owner_seat = seat
                 if all(p is not None for p in self.players):
                     self._deal()
                 return player
@@ -153,13 +172,22 @@ class Game:
         self.bottom_cards = sort_cards(deck[51:54])
         self.phase = Phase.BIDDING
         self.bid_turn = self._rng.randrange(3)
+        self.turn_started_at = time.time()
 
     def bid(self, token: str, value: int) -> None:
+        self._check_turn_timeout()
         if self.phase != Phase.BIDDING:
             raise GameError("not in bidding phase")
         seat = self.seat_of(token)
         if seat != self.bid_turn:
             raise GameError("not your turn to bid")
+        if not self._timeout_auto:
+            elapsed = time.time() - self.turn_started_at
+            if elapsed < self.THINK_SECONDS:
+                remaining = self.THINK_SECONDS - elapsed
+                raise GameError(
+                    f"thinking phase: must wait {remaining:.1f}s more (action window opens at t={self.THINK_SECONDS:.0f}s)"
+                )
         if value not in (0, 1, 2, 3):
             raise GameError("bid must be 0/1/2/3")
         if value != 0 and value <= self.current_bid:
@@ -184,6 +212,7 @@ class Game:
             self._finalize_bidding()
             return
         self.bid_turn = next_seat
+        self.turn_started_at = time.time()
 
     def _finalize_bidding(self) -> None:
         if self.current_bid == 0:
@@ -200,15 +229,24 @@ class Game:
         self.current_turn = ll
         self.last_play_seat = -1
         self.last_pattern = None
+        self.turn_started_at = time.time()
 
     # ---- play -----------------------------------------------------------
 
     def play(self, token: str, card_codes: Sequence[str]) -> dict:
+        self._check_turn_timeout()
         if self.phase != Phase.PLAYING:
             raise GameError("not in playing phase")
         seat = self.seat_of(token)
         if seat != self.current_turn:
             raise GameError("not your turn")
+        if not self._timeout_auto:
+            elapsed = time.time() - self.turn_started_at
+            if elapsed < self.THINK_SECONDS:
+                remaining = self.THINK_SECONDS - elapsed
+                raise GameError(
+                    f"thinking phase: must wait {remaining:.1f}s more (action window opens at t={self.THINK_SECONDS:.0f}s)"
+                )
 
         # Pass
         if len(card_codes) == 0:
@@ -265,6 +303,7 @@ class Game:
 
     def _advance_turn(self) -> None:
         nxt = (self.current_turn + 1) % 3
+        self.turn_started_at = time.time()
         # if both opponents passed, leader keeps leading (handled implicitly:
         # after 2 passes, next player == last_play_seat — they then "lead" a new trick)
         if nxt == self.last_play_seat:
@@ -274,9 +313,92 @@ class Game:
             # since seat == last_play_seat is allowed to play anything.
         self.current_turn = nxt
 
+    # ---- disband -------------------------------------------------------
+
+    def disband(self, reason: str = "owner disbanded") -> None:
+        self.phase = Phase.FINISHED
+        self.disbanded = True
+        self.disbanded_reason = reason
+        self.turn_started_at = 0.0
+
+    def is_owner(self, token: str) -> bool:
+        try:
+            return self.seat_of(token) == self.owner_seat
+        except GameError:
+            return False
+
+    # ---- turn clock -----------------------------------------------------
+
+    def _check_turn_timeout(self) -> None:
+        """If the current actor missed the 20s window, auto-resolve."""
+        if self.phase not in (Phase.BIDDING, Phase.PLAYING):
+            return
+        if self.turn_started_at <= 0 or self._timeout_auto:
+            return
+        elapsed = time.time() - self.turn_started_at
+        if elapsed < self.TURN_TOTAL_SECONDS:
+            return
+        self._timeout_auto = True
+        try:
+            if self.phase == Phase.BIDDING:
+                seat = self.bid_turn
+                if seat < 0 or self.players[seat] is None:
+                    return
+                self.bid(self.players[seat].token, 0)
+            elif self.phase == Phase.PLAYING:
+                seat = self.current_turn
+                if seat < 0 or self.players[seat] is None:
+                    return
+                token = self.players[seat].token
+                if self.last_play_seat == -1 or self.last_play_seat == seat:
+                    # leader cannot pass: auto-play smallest single
+                    hand = self.players[seat].hand
+                    if not hand:
+                        return
+                    smallest = min(hand, key=lambda c: (c.rank_value, c.suit))
+                    self.play(token, [smallest.code])
+                else:
+                    self.play(token, [])
+        finally:
+            self._timeout_auto = False
+        # After one auto-resolution the clock has been reset by the recursive
+        # bid/play; recurse once more in case multiple turns expired between
+        # observations (e.g. nobody polled for 60s).
+        if self.phase in (Phase.BIDDING, Phase.PLAYING):
+            elapsed2 = time.time() - self.turn_started_at
+            if elapsed2 >= self.TURN_TOTAL_SECONDS:
+                self._check_turn_timeout()
+
+    def _turn_clock_info(self) -> dict:
+        if self.phase not in (Phase.BIDDING, Phase.PLAYING) or self.turn_started_at <= 0:
+            return {
+                "turn_started_at": 0,
+                "elapsed": 0,
+                "thinking_remaining": 0,
+                "action_remaining": 0,
+                "can_act": False,
+                "think_seconds": self.THINK_SECONDS,
+                "action_seconds": self.ACTION_SECONDS,
+                "total_seconds": self.TURN_TOTAL_SECONDS,
+            }
+        elapsed = max(0.0, time.time() - self.turn_started_at)
+        thinking_remaining = max(0.0, self.THINK_SECONDS - elapsed)
+        action_remaining = max(0.0, self.TURN_TOTAL_SECONDS - elapsed)
+        return {
+            "turn_started_at": self.turn_started_at,
+            "elapsed": round(elapsed, 3),
+            "thinking_remaining": round(thinking_remaining, 3),
+            "action_remaining": round(action_remaining, 3),
+            "can_act": thinking_remaining <= 0 and action_remaining > 0,
+            "think_seconds": self.THINK_SECONDS,
+            "action_seconds": self.ACTION_SECONDS,
+            "total_seconds": self.TURN_TOTAL_SECONDS,
+        }
+
     # ---- introspection --------------------------------------------------
 
     def public_state(self) -> dict:
+        self._check_turn_timeout()
         return {
             "game_id": self.game_id,
             "phase": self.phase.value,
@@ -308,6 +430,9 @@ class Game:
                 for h in self.history[-20:]
             ],
             "winner_seat": self.winner_seat,
+            "owner_seat": self.owner_seat,
+            "disbanded": self.disbanded,
+            "disbanded_reason": self.disbanded_reason,
             "chat": [
                 {
                     "seat": m.seat,
@@ -317,6 +442,7 @@ class Game:
                 }
                 for m in self.chat[-50:]
             ],
+            "turn_clock": self._turn_clock_info(),
             # bottom is hidden during bidding, revealed once a landlord is chosen
             "bottom_cards": (
                 [c.code for c in self.bottom_cards]
