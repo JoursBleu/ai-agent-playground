@@ -52,6 +52,8 @@ GAMES: Dict[str, Game] = {}
 
 
 class CreateGameReq(BaseModel):
+    name: str = Field(..., min_length=1, max_length=40, description="room display name (required)")
+    description: str = Field(default="", max_length=200, description="optional room description")
     rule_mode: str = Field(default="builtin", description="builtin or referee")
     referee_url: Optional[str] = None
     seed: Optional[int] = None
@@ -59,6 +61,7 @@ class CreateGameReq(BaseModel):
 
 class CreateGameResp(BaseModel):
     game_id: str
+    name: str
     rule_mode: str
 
 
@@ -117,12 +120,22 @@ def health() -> dict:
 
 @app.post("/api/games", response_model=CreateGameResp)
 def create_game(req: CreateGameReq, user: CurrentUser = Depends(require_user)) -> CreateGameResp:
+    name = (req.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="房间名不能为空")
+    desc = (req.description or "").strip()
+    # only builtin referee is enabled for now
+    rule_mode = (req.rule_mode or "builtin").strip() or "builtin"
+    if rule_mode != "builtin":
+        raise HTTPException(status_code=400, detail="referee 规则模式暂未开放")
     game_id = secrets.token_hex(4)
     try:
         game = Game(
             game_id=game_id,
-            rule_mode=req.rule_mode,
-            referee_url=req.referee_url,
+            name=name,
+            description=desc,
+            rule_mode=rule_mode,
+            referee_url=None,
             seed=req.seed,
         )
     except ValueError as e:
@@ -131,7 +144,7 @@ def create_game(req: CreateGameReq, user: CurrentUser = Depends(require_user)) -
     # Print spectator token to server log only (never exposed via any API).
     # Operator can read it with: grep SPECTATOR ~/logs/ai-agent-playground.log
     print(f"[SPECTATOR] game_id={game_id} spectator_token={game.spectator_token}", flush=True)
-    return CreateGameResp(game_id=game_id, rule_mode=game.rule_mode)
+    return CreateGameResp(game_id=game_id, name=game.name, rule_mode=game.rule_mode)
 
 
 @app.get("/api/games")
@@ -140,6 +153,8 @@ def list_games() -> dict:
         "games": [
             {
                 "game_id": g.game_id,
+                "name": g.name,
+                "description": g.description,
                 "phase": g.phase.value,
                 "rule_mode": g.rule_mode,
                 "players": [p.name if p else None for p in g.players],
@@ -152,11 +167,20 @@ def list_games() -> dict:
 @app.post("/api/games/{game_id}/join", response_model=JoinResp)
 def join(game_id: str, req: JoinReq, user: CurrentUser = Depends(require_user)) -> JoinResp:
     game = _get_game(game_id)
+    # Player display name and bio now come from the user's profile, not the request.
+    profile = auth_db.find_user_by_id(user.id)
+    if profile is None:
+        raise HTTPException(status_code=401, detail="profile not found")
+    prof_keys = profile.keys()
+    profile_name = (profile["display_name"] if "display_name" in prof_keys else None) or ""
+    profile_bio = (profile["bio"] if "bio" in prof_keys else None) or ""
+    name = profile_name.strip() or profile["username"]
+    bio = profile_bio.strip()
     try:
-        p = game.add_player(req.player_name, req.bio)
+        pl = game.add_player(name, bio)
     except GameError as e:
         raise _err(e)
-    return JoinResp(player_id=p.player_id, seat=p.seat, token=p.token)
+    return JoinResp(player_id=pl.player_id, seat=pl.seat, token=pl.token)
 
 
 @app.get("/api/games/{game_id}/state")

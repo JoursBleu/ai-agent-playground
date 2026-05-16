@@ -202,24 +202,30 @@
 <div class="content">
 
 <section class="panel" id="lobby">
+  <div id="lobbyLoginHint" class="muted" style="display:none;padding:10px 12px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;margin-bottom:10px;font-size:13px">
+    匿名可在右下方旁观已有房间。<b>创建房间</b>或<b>入座</b>需要先 <a href="#" id="hintLogin" style="color:#2563eb;text-decoration:underline">登录</a> 或 <a href="#" id="hintRegister" style="color:#2563eb;text-decoration:underline">注册</a>。玩家昵称 / 简介请到「我的账号」里设置。
+  </div>
+  <h3 style="margin:0 0 8px;font-size:14px;color:#0f172a">创建房间</h3>
   <div class="row">
-    <label>玩家昵称</label>
-    <input id="name" placeholder="你的名字" />
-    <label>房间</label>
-    <input id="gameId" placeholder="留空则新建" style="width:140px" />
-      <div id="urlRoomHint" class="muted" style="display:none;font-size:12px;margin-top:6px;color:#7ad"></div>
+    <label>房间名 <span style="color:#dc2626">*</span></label>
+    <input id="roomName" placeholder="例：欢乐场 #1" maxlength="40" style="flex:1;min-width:200px" />
     <label>规则</label>
     <select id="ruleMode">
       <option value="builtin">builtin (内置)</option>
-      <option value="referee">referee (裁判 agent)</option>
+      <option value="referee" disabled style="color:#9ca3af">referee (裁判 agent，暂未开放)</option>
     </select>
-    <input id="refereeUrl" placeholder="http://referee:8001" style="display:none" />
-    <button id="btnJoin">创建/加入</button>
-    <button id="btnRefresh" class="ghost" disabled>刷新</button>
+    <button id="btnCreate">创建并入座</button>
   </div>
   <div class="row" style="margin-top:6px;align-items:flex-start">
-    <label style="margin-top:6px">玩家简介</label>
-    <textarea id="bio" placeholder="必填：介绍一下你自己（agent 可在此说明能力 / 风格 / 性格设定）" rows="3" style="flex:1;min-width:300px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:4px;font-family:inherit;font-size:13px;resize:vertical"></textarea>
+    <label style="margin-top:6px">房间介绍</label>
+    <textarea id="roomDesc" placeholder="可选：本房间玩法 / 难度 / 期待对手风格…" maxlength="200" rows="2" style="flex:1;min-width:300px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:4px;font-family:inherit;font-size:13px;resize:vertical"></textarea>
+  </div>
+  <div class="row" style="margin-top:6px">
+    <label>已有房间号</label>
+    <input id="gameId" placeholder="(从下方列表点「加入」自动填入)" style="width:200px" />
+    <button id="btnJoinExisting">加入</button>
+    <button id="btnRefresh" class="ghost" disabled>刷新</button>
+    <div id="urlRoomHint" class="muted" style="display:none;font-size:12px;margin-top:6px;color:#7ad"></div>
   </div>
   <div class="status" id="lobbyStatus"></div>
   <div style="margin-top:14px">
@@ -378,6 +384,19 @@ function renderUserbar() {
     $('btnShowLogin').onclick = () => openModal('login');
     $('btnShowRegister').onclick = () => openModal('register');
   }
+  // Lobby gating: show hint + disable create/join buttons when anonymous
+  const loggedIn = !!currentUser;
+  const hint = document.getElementById('lobbyLoginHint');
+  if (hint) hint.style.display = loggedIn ? 'none' : '';
+  for (const id of ['btnCreate', 'btnJoinExisting']) {
+    const b = document.getElementById(id);
+    if (b) {
+      b.disabled = !loggedIn;
+      b.title = loggedIn ? '' : '请先登录';
+      b.style.opacity = loggedIn ? '' : '0.55';
+      b.style.cursor = loggedIn ? '' : 'not-allowed';
+    }
+  }
 }
 
 async function loadMe() {
@@ -399,8 +418,6 @@ async function doLogin() {
     closeModals();
     renderUserbar();
     log('已登录: ' + currentUser.username, 'me');
-    // Prefill nickname.
-    if ($('name') && !$('name').value) $('name').value = currentUser.username;
   } catch (e) { $('loginErr').textContent = e.message; }
 }
 
@@ -418,7 +435,6 @@ async function doRegister() {
     closeModals();
     renderUserbar();
     log('注册成功并已登录: ' + currentUser.username, 'me');
-    if ($('name') && !$('name').value) $('name').value = currentUser.username;
   } catch (e) { $('regErr').textContent = e.message; }
 }
 
@@ -574,36 +590,47 @@ async function api(method, path, body) {
   return data;
 }
 
-$("ruleMode").onchange = (e) => {
-  $("refereeUrl").style.display = e.target.value === "referee" ? "" : "none";
+function _requireLogin() {
+  if (currentUser) return true;
+  log("请先登录", "err");
+  openModal("login");
+  return false;
+}
+
+async function _joinGameId(gid) {
+  const j = await api("POST", `/api/games/${gid}/join`, {});
+  gameId = gid;
+  token = j.token;
+  mySeat = j.seat;
+  $("gameId").value = gid;
+  $("btnRefresh").disabled = false;
+  enterRoom(gid, false);
+  log(`已加入 ${gid}: seat=${j.seat} player=${j.player_id}`, "me");
+  log(`你的 token: ${j.token}  game_id: ${gid}`, "me");
+  startPolling();
+}
+
+$("btnCreate").onclick = async () => {
+  if (!_requireLogin()) return;
+  const name = $("roomName").value.trim();
+  if (!name) { log("请填写房间名", "err"); $("roomName").focus(); return; }
+  const description = $("roomDesc").value.trim();
+  const rule_mode = $("ruleMode").value;
+  try {
+    const r = await api("POST", "/api/games", { name, description, rule_mode });
+    log(`创建房间 ${r.name} (${r.game_id})  规则=${r.rule_mode}`, "me");
+    await _joinGameId(r.game_id);
+  } catch (e) {
+    log("创建/加入失败: " + e.message, "err");
+  }
 };
 
-$("btnJoin").onclick = async () => {
-  try {
-    const name = $("name").value || "anonymous";
-    let gid = $("gameId").value.trim();
-    if (!gid) {
-      const body = { rule_mode: $("ruleMode").value };
-      if (body.rule_mode === "referee") body.referee_url = $("refereeUrl").value;
-      const r = await api("POST", "/api/games", body);
-      gid = r.game_id;
-      log("创建房间 " + gid + "  规则=" + r.rule_mode, "me");
-    }
-    const bio = $("bio").value.trim();
-    if (!bio) { log("请填写玩家简介后再加入", "err"); $("bio").focus(); return; }
-    const j = await api("POST", `/api/games/${gid}/join`, { player_name: name, bio });
-    gameId = gid;
-    token = j.token;
-    mySeat = j.seat;
-    $("gameId").value = gid;
-    $("btnRefresh").disabled = false;
-    enterRoom(gid, false);
-    log(`已加入: seat=${j.seat} player=${j.player_id}`, "me");
-    log(`你的 token: ${j.token}  game_id: ${gid}`, "me");
-    startPolling();
-  } catch (e) {
-    log("加入失败: " + e.message, "err");
-  }
+$("btnJoinExisting").onclick = async () => {
+  if (!_requireLogin()) return;
+  const gid = $("gameId").value.trim();
+  if (!gid) { log("请输入或选择一个房间号", "err"); $("gameId").focus(); return; }
+  try { await _joinGameId(gid); }
+  catch (e) { log("加入失败: " + e.message, "err"); }
 };
 
 $("btnRefresh").onclick = () => refresh();
@@ -626,19 +653,24 @@ async function loadRooms() {
         : `<button class="ghost" data-join="${g.game_id}" style="padding:2px 10px;font-size:12px" disabled>已满</button>`;
       const watchBtn = `<button class="ghost" data-watch="${g.game_id}" style="padding:2px 10px;font-size:12px;margin-left:4px">旁观</button>`;
       const btn = joinBtn + watchBtn;
-      return `<div class="row" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 0">
-        <div>
-          <code style="font-size:12px">${g.game_id}</code>
-          <span style="color:${phaseColor};font-size:12px;margin-left:6px">${g.phase}</span>
-          <span class="muted" style="font-size:12px;margin-left:6px">${g.rule_mode}</span>
-          <div style="font-size:13px;margin-top:2px">${seats}</div>
+      const roomName = escapeHtml(g.name || g.game_id);
+      const roomDesc = g.description ? `<div class="muted" style="font-size:12px;margin-top:2px">${escapeHtml(g.description)}</div>` : "";
+      return `<div class="row" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 0">
+        <div style="min-width:0;flex:1">
+          <div style="font-size:14px;font-weight:600">${roomName}
+            <code style="font-size:11px;color:var(--muted);font-weight:400;margin-left:6px">${g.game_id}</code>
+            <span style="color:${phaseColor};font-size:12px;margin-left:6px">${g.phase}</span>
+            <span class="muted" style="font-size:12px;margin-left:6px">${g.rule_mode}</span>
+          </div>
+          ${roomDesc}
+          <div style="font-size:13px;margin-top:4px">${seats}</div>
         </div>
         <div>${btn}</div>
       </div>`;
     }).join('');
     box.innerHTML = rows;
     box.querySelectorAll('[data-join]:not([disabled])').forEach(b => {
-      b.onclick = () => { $("gameId").value = b.dataset.join; $("btnJoin").click(); };
+      b.onclick = () => { $("gameId").value = b.dataset.join; $("btnJoinExisting").click(); };
     });
     box.querySelectorAll('[data-watch]').forEach(b => {
       b.onclick = () => watchGame(b.dataset.watch);
@@ -670,16 +702,6 @@ $("btnRestart").onclick = async () => {
     log("再来一局失败: " + e.message, "err");
   }
 };
-const _bioInp = $("bio");
-if (_bioInp) {
-  _bioInp.value = localStorage.getItem("ai_pg_bio") || "";
-  _bioInp.addEventListener("input", () => localStorage.setItem("ai_pg_bio", _bioInp.value));
-}
-const _nameInp = $("name");
-if (_nameInp) {
-  _nameInp.value = localStorage.getItem("ai_pg_name") || "";
-  _nameInp.addEventListener("input", () => localStorage.setItem("ai_pg_name", _nameInp.value));
-}
 $("btnRefreshRooms").onclick = loadRooms;
 (function initFromUrl(){
   const m = location.pathname.match(/^\/r\/([^\/?#]+)$/);

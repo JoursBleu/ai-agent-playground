@@ -62,6 +62,10 @@ class KeygenReq(BaseModel):
 
 class BanReq(BaseModel):
     reason: str = ""
+class UpdateProfileReq(BaseModel):
+    display_name: Optional[str] = None
+    bio: Optional[str] = None
+
 
 
 def _client_ip(request: Request) -> Optional[str]:
@@ -90,6 +94,8 @@ def _user_summary(row: sqlite3.Row) -> dict:
         "is_admin": bool(row["is_admin"]),
         "is_banned": bool(row["is_banned"]),
         "banned_reason": row["banned_reason"] if "banned_reason" in keys else None,
+        "display_name": (row["display_name"] if "display_name" in keys else None) or "",
+        "bio": (row["bio"] if "bio" in keys else None) or "",
         "created_at": int(row["created_at"]),
         "last_login_at": int(row["last_login_at"]) if row["last_login_at"] else None,
     }
@@ -167,6 +173,19 @@ def me(user: Optional[CurrentUser] = Depends(optional_current_user)) -> dict:
         return {"user": None}
     u = db.find_user_by_id(user.id)
     return {"user": _user_summary(u), "via": user.via}
+
+
+@router.patch("/profile")
+def update_profile(req: UpdateProfileReq, user: CurrentUser = Depends(require_user)) -> dict:
+    dn = (req.display_name or "").strip()
+    if len(dn) > 32:
+        raise HTTPException(status_code=400, detail="显示名最长 32 字符")
+    bio = (req.bio or "").strip()
+    if len(bio) > 500:
+        raise HTTPException(status_code=400, detail="简介最长 500 字符")
+    db.update_profile(user.id, dn or None, bio or None)
+    u = db.find_user_by_id(user.id)
+    return {"ok": True, "user": _user_summary(u)}
 
 
 @router.post("/change-password")

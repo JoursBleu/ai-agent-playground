@@ -74,11 +74,15 @@ class Game:
     def __init__(
         self,
         game_id: str,
+        name: str = "",
+        description: str = "",
         rule_mode: str = "builtin",
         referee_url: Optional[str] = None,
         seed: Optional[int] = None,
     ):
         self.game_id = game_id
+        self.name = (name or "").strip() or game_id
+        self.description = (description or "").strip()
         self.rule_mode = rule_mode
         self.referee_url = referee_url
         self.engine: RuleEngine = get_rule_engine(rule_mode, referee_url)
@@ -445,6 +449,8 @@ class Game:
         self._check_turn_timeout()
         return {
             "game_id": self.game_id,
+            "name": self.name,
+            "description": self.description,
             "phase": self.phase.value,
             "rule_mode": self.rule_mode,
             "players": [

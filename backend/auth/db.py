@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS users (
     is_admin        INTEGER NOT NULL DEFAULT 0,
     is_banned       INTEGER NOT NULL DEFAULT 0,
     banned_reason   TEXT,
+    display_name    TEXT,
+    bio             TEXT,
     created_at      INTEGER NOT NULL,
     last_login_at   INTEGER
 );
@@ -58,6 +60,11 @@ def init_db(db_path: Path) -> None:
     _DB_PATH = db_path
     with connect() as conn:
         conn.executescript(SCHEMA)
+        # idempotent migration: add columns that may be missing on old DBs
+        existing = {r["name"] for r in conn.execute("PRAGMA table_info(users)")}
+        for col, ddl in (("display_name", "TEXT"), ("bio", "TEXT")):
+            if col not in existing:
+                conn.execute(f"ALTER TABLE users ADD COLUMN {col} {ddl}")
         conn.commit()
 
 
@@ -196,3 +203,10 @@ def revoke_api_key(user_id: int, key_id: int) -> bool:
 def touch_api_key(key_id: int) -> None:
     with connect() as c:
         c.execute("UPDATE api_keys SET last_used_at = ? WHERE id = ?", (int(time.time()), key_id))
+
+def update_profile(uid: int, display_name: Optional[str], bio: Optional[str]) -> None:
+    with connect() as c:
+        c.execute(
+            "UPDATE users SET display_name = ?, bio = ? WHERE id = ?",
+            (display_name, bio, uid),
+        )
