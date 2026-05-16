@@ -412,15 +412,18 @@ function updateClocks(phase, think, act) {
   const small = $("turnClock");
   const big = $("turnClockBig");
   const hint = $("turnClockHint");
+  const tc = (state && state.turn_clock) || {};
+  const thinkTotal = Math.round(tc.think_seconds || 0);
+  const actTotal = Math.round(tc.action_seconds || 0);
   let cls = "clock idle", txt = "—", hintTxt = "尚未开始";
   if (phase === "bidding" || phase === "playing") {
     if (think > 0) {
       cls = "clock thinking";
-      txt = `⏳ ${think.toFixed(1)}s`;
+      txt = `⏳ ${Math.ceil(think)}/${thinkTotal}s`;
       hintTxt = "思考阶段（不能操作）";
     } else if (act > 0) {
       cls = "clock action";
-      txt = `▶ ${act.toFixed(1)}s`;
+      txt = `▶ ${Math.ceil(act)}/${actTotal}s`;
       hintTxt = "出牌阶段（请操作）";
     } else {
       cls = "clock idle"; txt = "超时"; hintTxt = "已超时，系统将托管";
