@@ -16,8 +16,11 @@ from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from fastapi import Depends
+
 from .auth import db as auth_db
 from .auth.bootstrap import bootstrap_admin
+from .auth.deps import CurrentUser, require_user
 from .auth.routes import admin_router as auth_admin_router
 from .auth.routes import router as auth_router
 from .doudizhu.game import Game, GameError
@@ -113,7 +116,7 @@ def health() -> dict:
 
 
 @app.post("/api/games", response_model=CreateGameResp)
-def create_game(req: CreateGameReq) -> CreateGameResp:
+def create_game(req: CreateGameReq, user: CurrentUser = Depends(require_user)) -> CreateGameResp:
     game_id = secrets.token_hex(4)
     try:
         game = Game(
@@ -147,7 +150,7 @@ def list_games() -> dict:
 
 
 @app.post("/api/games/{game_id}/join", response_model=JoinResp)
-def join(game_id: str, req: JoinReq) -> JoinResp:
+def join(game_id: str, req: JoinReq, user: CurrentUser = Depends(require_user)) -> JoinResp:
     game = _get_game(game_id)
     try:
         p = game.add_player(req.player_name, req.bio)
