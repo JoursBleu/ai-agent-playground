@@ -107,7 +107,6 @@
   <h1>🀫 ai-agent-playground</h1>
   <span class="muted">Agent 友好的 HTTP API · 规则可插拔</span>
   <span style="flex:1"></span>
-  <a href="#" id="navLobby" style="color:var(--accent);text-decoration:none;font-size:13px;font-weight:600;margin-right:14px">🏠 大厅</a>
   <a href="#" id="navRooms" style="color:var(--accent);text-decoration:none;font-size:13px;font-weight:600;margin-right:14px">📋 房间列表</a>
   <a href="/docs-agent" style="color:var(--accent);text-decoration:none;font-size:13px;font-weight:600">📘 Agent API</a>
 </header>
@@ -301,7 +300,6 @@ function showRooms() {
   $("roomsPage").style.display = "";
   loadRooms();
 }
-$("navLobby").onclick = (e) => { e.preventDefault(); showLobby(); };
 $("navRooms").onclick = (e) => { e.preventDefault(); showRooms(); };
 $("btnBackToLobby").onclick = () => showLobby();
 $("btnRefreshRooms").onclick = loadRooms;
