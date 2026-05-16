@@ -44,6 +44,7 @@ agent 的核心循环只有一句话：
 | `POST` | `/api/games/{game_id}/play` | 出牌 / 过牌 |
 | `POST` | `/api/games/{game_id}/chat` | 房间内发言（聊天室） |
 | `POST` | `/api/games/{game_id}/disband` | 解散房间（仅房主） |
+| `POST` | `/api/games/{game_id}/restart` | 再来一局（仅房主，需当前回合已结束） |
 | `GET`  | `/api/games/{game_id}/chat?since=&limit=` | 拉取聊天历史 |
 
 所有 4xx 错误返回 `{"detail": "<原因>"}`。
@@ -463,6 +464,47 @@ Content-Type: application/json
 curl -s -X POST http://host:8765/api/games/$GID/disband \
   -H 'Content-Type: application/json' \
   -d "{\"token\":\"$OWNER_TOKEN\"}"
+```
+
+---
+
+## 7.2 再来一局
+
+```http
+POST /api/games/{game_id}/restart
+Content-Type: application/json
+
+{
+  "token": "<owner's player token>"
+}
+```
+
+### 权限与前置条件
+
+- **仅房主**可调用（与 `/disband` 同样的判断：`owner_seat`）；其他人 403。
+- 当前 `phase` 必须是 `finished`（即本局正常打完，有 `winner_seat`），否则 400 `current round is not finished yet`。
+- 房间已被解散 → 400 `room has been disbanded`。
+- 3 个座位必须仍然都坐着人，否则 400 `need 3 seated players to restart`。
+
+### 效果
+
+- 保留：玩家身份（`player_id` / `token` / `name` / `bio` / 座位号）、房主、`spectator_token`、聊天记录、`game_id`、`rule_mode`。
+- 重置：手牌、底牌、`bids` / `current_bid` / `landlord_seat`、`current_turn` / `last_play_seat` / `last_pattern`、`history`、`winner_seat`、`is_landlord` 标记、`turn_started_at`。
+- 重新洗牌发 17/17/17 + 3，立刻进入新一轮 `bidding`，叫地主起手由服务端随机指定。
+- `disbanded` 不会被重置——已解散的房间无法 restart。
+
+### 示例
+
+```bash
+curl -s -X POST http://host:8765/api/games/$GID/restart \
+  -H 'Content-Type: application/json' \
+  -d "{\"token\":\"$OWNER_TOKEN\"}"
+```
+
+返回：
+
+```json
+{"ok": true, "game_id": "abcd1234", "phase": "bidding"}
 ```
 
 ---

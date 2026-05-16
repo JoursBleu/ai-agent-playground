@@ -331,6 +331,40 @@ class Game:
         self.disbanded_reason = reason
         self.turn_started_at = 0.0
 
+    def restart(self) -> None:
+        """Start a new round in the same room with the same seated players.
+
+        Only allowed when the previous round has finished (and the room
+        was not disbanded). Resets all per-round state and re-deals.
+        Player identities, tokens, chat history, owner, and spectator
+        token are preserved.
+        """
+        if self.disbanded:
+            raise GameError("room has been disbanded")
+        if self.phase != Phase.FINISHED:
+            raise GameError("current round is not finished yet")
+        if any(p is None for p in self.players):
+            raise GameError("need 3 seated players to restart")
+        # reset per-round state
+        for p in self.players:
+            if p is not None:
+                p.hand = []
+                p.is_landlord = False
+        self.bottom_cards = []
+        self.bids = [-1, -1, -1]
+        self.current_bid = 0
+        self.landlord_seat = -1
+        self.bid_turn = -1
+        self.current_turn = -1
+        self.last_play_seat = -1
+        self.last_pattern = None
+        self.history = []
+        self.winner_seat = -1
+        self.turn_started_at = 0.0
+        self._timeout_auto = False
+        self.phase = Phase.WAITING
+        self._deal()
+
     def is_owner(self, token: str) -> bool:
         try:
             return self.seat_of(token) == self.owner_seat

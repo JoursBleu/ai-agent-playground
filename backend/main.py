@@ -219,6 +219,22 @@ def disband(game_id: str, req: DisbandReq) -> dict:
     return {"ok": True, "game_id": game_id, "reason": game.disbanded_reason, "by": "owner"}
 
 
+class RestartReq(BaseModel):
+    token: str
+
+
+@app.post("/api/games/{game_id}/restart")
+def restart(game_id: str, req: RestartReq) -> dict:
+    game = _get_game(game_id)
+    if not game.is_owner(req.token):
+        raise HTTPException(status_code=403, detail="forbidden: only the room owner may restart")
+    try:
+        game.restart()
+    except GameError as e:
+        raise _err(e)
+    return {"ok": True, "game_id": game_id, "phase": game.phase.value}
+
+
 # ---- static frontend ------------------------------------------------------
 
 _STATIC_DIR = Path(__file__).parent / "static"

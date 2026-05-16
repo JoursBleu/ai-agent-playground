@@ -188,6 +188,7 @@
   <div class="row" style="justify-content:space-between;margin-bottom:10px">
     <div><strong id="boardTitle">牌桌</strong> <span class="muted" id="boardRoomTag" style="font-size:12px;margin-left:6px"></span> <span id="turnClock" class="clock idle" style="margin-left:10px">—</span></div>
     <div class="row" style="gap:6px">
+      <button id="btnRestart" class="ghost" style="padding:4px 12px;font-size:12px;display:none;color:var(--good);border-color:#86efac">再来一局</button>
       <button id="btnDisband" class="ghost" style="padding:4px 12px;font-size:12px;display:none;color:var(--bad);border-color:#fca5a5">解散房间</button>
       <button id="btnLeaveRoom" class="ghost" style="padding:4px 12px;font-size:12px">← 返回大厅</button>
     </div>
@@ -374,6 +375,16 @@ $("btnDisband").onclick = async () => {
     log("解散失败: " + e.message, "err");
   }
 };
+$("btnRestart").onclick = async () => {
+  if (!gameId || !token) return;
+  if (!confirm("确认再来一局？将重新洗牌发牌，本局历史清空。")) return;
+  try {
+    await api("POST", `/api/games/${gameId}/restart`, { token });
+    log("新一局开始", "me");
+  } catch (e) {
+    log("再来一局失败: " + e.message, "err");
+  }
+};
 const _bioInp = $("bio");
 if (_bioInp) {
   _bioInp.value = localStorage.getItem("ai_pg_bio") || "";
@@ -446,11 +457,16 @@ function startPolling() {
   clockTimer = setInterval(tickClock, 250);
 }
 
+// Clock anchor: avoids server/browser clock skew by recording server-elapsed at the
+// moment we received the last state, then advancing locally using performance.now().
+let clockAnchorServerElapsed = 0;
+let clockAnchorLocalMs = 0;
+
 function tickClock() {
   if (!state || !state.turn_clock || !state.turn_clock.turn_started_at) return;
   const tc = state.turn_clock;
-  const now = Date.now() / 1000;
-  const elapsed = Math.max(0, now - tc.turn_started_at);
+  const localDelta = (performance.now() - clockAnchorLocalMs) / 1000;
+  const elapsed = Math.max(0, clockAnchorServerElapsed + localDelta);
   const think = Math.max(0, tc.think_seconds - elapsed);
   const act = Math.max(0, tc.total_seconds - elapsed);
   updateClocks(state.phase, think, act);
@@ -616,10 +632,13 @@ function render() {
   if (!state.you) {
     h.innerHTML = '<span class="muted">（旁观模式，看不到手牌）</span>';
   }
-  // disband button visibility (owner only)
+  // owner-only buttons
   const isOwner = state.you && state.owner_seat === state.you.seat;
   $("btnDisband").style.display = isOwner ? "" : "none";
   $("btnDisband").textContent = "解散房间";
+  // restart only when round finished (and not disbanded)
+  const canRestart = isOwner && state.phase === "finished" && !state.disbanded;
+  $("btnRestart").style.display = canRestart ? "" : "none";
   // disbanded state
   if (state.disbanded) {
     $("turnClock").className = "clock idle";
@@ -633,14 +652,27 @@ function render() {
   $("playArea").style.display = state.phase === "playing" && myTurn ? "" : "none";
   // disable bid/play buttons during thinking window
   document.querySelectorAll("#bidArea button, #playArea button").forEach(b => { b.disabled = myTurn && !canAct; });
-  updateClocks(state.phase, tc.thinking_remaining, tc.action_remaining);
+  // Anchor clock to server-reported elapsed; tickClock advances locally from here.
+  if (tc.turn_started_at) {
+    let serverElapsed;
+    if (typeof tc.thinking_remaining === "number" && tc.thinking_remaining > 0) {
+      serverElapsed = tc.think_seconds - tc.thinking_remaining;
+    } else if (typeof tc.action_remaining === "number" && tc.action_remaining > 0) {
+      serverElapsed = tc.total_seconds - tc.action_remaining;
+    } else {
+      serverElapsed = tc.total_seconds;
+    }
+    clockAnchorServerElapsed = Math.max(0, serverElapsed);
+    clockAnchorLocalMs = performance.now();
+  }
+  tickClock();
 
   let bigParts = [];
   if (state.phase === "playing") {
     const cs = state.current_turn;
     const cp = state.players[cs];
     const cname = (cp && cp.name) ? cp.name : "";
-    bigParts.push(`<span style="font-size:20px;font-weight:800;color:#b45309;background:#fef3c7;padding:6px 14px;border-radius:6px;border:2px solid #f59e0b">🎯 当前出牌：座位 ${cs}${cname ? " · " + escapeHtml(cname) : ""}</span>`);
+    bigParts.push(`<span style="font-size:20px;font-weight:800;color:#b45309;background:#fef3c7;padding:6px 14px;border-radius:6px;border:2px solid #f59e0b">🎯 当前出牌中：座位 ${cs}${cname ? " · " + escapeHtml(cname) : ""}</span>`);
   } else if (state.phase === "bidding") {
     const cs = state.bid_turn;
     const cp = state.players[cs];
