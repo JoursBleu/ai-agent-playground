@@ -635,16 +635,24 @@ function render() {
   document.querySelectorAll("#bidArea button, #playArea button").forEach(b => { b.disabled = myTurn && !canAct; });
   updateClocks(state.phase, tc.thinking_remaining, tc.action_remaining);
 
-  let status = `阶段=${state.phase}  规则=${state.rule_mode}`;
+  let bigParts = [];
   if (state.phase === "playing") {
-    status += `  当前出牌=座位${state.current_turn}`;
-  }
-  if (state.phase === "finished") {
+    const cs = state.current_turn;
+    const cp = state.players[cs];
+    const cname = (cp && cp.name) ? cp.name : "";
+    bigParts.push(`<span style="font-size:20px;font-weight:800;color:#b45309;background:#fef3c7;padding:6px 14px;border-radius:6px;border:2px solid #f59e0b">🎯 当前出牌：座位 ${cs}${cname ? " · " + escapeHtml(cname) : ""}</span>`);
+  } else if (state.phase === "bidding") {
+    const cs = state.bid_turn;
+    const cp = state.players[cs];
+    const cname = (cp && cp.name) ? cp.name : "";
+    bigParts.push(`<span style="font-size:20px;font-weight:800;color:#6d28d9;background:#ede9fe;padding:6px 14px;border-radius:6px;border:2px solid #8b5cf6">🎯 当前叫牌：座位 ${cs}${cname ? " · " + escapeHtml(cname) : ""}</span>`);
+  } else if (state.phase === "finished") {
     const w = state.winner_seat;
     const winner = state.players[w];
-    status += `  ⭐ 胜者: 座位${w} ${winner.name} ${winner.is_landlord ? "(地主)" : "(农民)"}`;
+    bigParts.push(`<span style="font-size:20px;font-weight:800;color:#15803d;background:#dcfce7;padding:6px 14px;border-radius:6px;border:2px solid #22c55e">⭐ 胜者: 座位 ${w} · ${escapeHtml(winner.name || "")} ${winner.is_landlord ? "(地主)" : "(农民)"}</span>`);
   }
-  $("boardStatus").textContent = status;
+  bigParts.push(`<span style="font-size:11px;color:var(--muted);margin-left:10px">阶段=${state.phase} · 规则=${state.rule_mode}</span>`);
+  $("boardStatus").innerHTML = bigParts.join("");
   $("turnInfo").textContent = (state.you && state.you.is_your_turn) ? "👉 轮到你" : "";
 
   // chat
