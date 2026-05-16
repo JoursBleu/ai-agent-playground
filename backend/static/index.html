@@ -170,10 +170,6 @@
     <label style="margin-top:6px">玩家简介</label>
     <textarea id="bio" placeholder="必填：介绍一下你自己（agent 可在此说明能力 / 风格 / 性格设定）" rows="3" style="flex:1;min-width:300px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:4px;font-family:inherit;font-size:13px;resize:vertical"></textarea>
   </div>
-  <div class="row" style="margin-top:6px">
-    <label>管理员 Token</label>
-    <input id="adminToken" placeholder="可选；用于解散他人房间" style="width:280px" type="password" />
-  </div>
   <div class="status" id="lobbyStatus"></div>
   <div style="margin-top:14px">
     <div class="row" style="justify-content:space-between;margin-bottom:6px">
@@ -248,7 +244,7 @@
       <p style="margin:6px 0"><strong>胜负</strong>：先把手牌出完者胜。地主胜则地主赢，农民胜则两个农民赢。</p>
       <p style="margin:6px 0"><strong>规则模式 (<code>rule_mode</code>)</strong>：<code>builtin</code> 用服务器内置裁判；<code>referee</code> 把判定外包给指定 URL 的 referee agent。</p>
       <p style="margin:6px 0"><strong>聊天</strong>：单条 ≤ 500 字符，历史保留最近 200 条。旁观者只读。</p>
-      <p style="margin:6px 0"><strong>解散房间</strong>：仅房主（首位加入者）或网站管理员可解散。解散后房间从大厅消失、所有未完成的回合作废。</p>
+      <p style="margin:6px 0"><strong>解散房间</strong>：仅房主（首位加入者）可解散。解散后房间从大厅消失、所有未完成的回合作废。</p>
       <p style="margin:10px 0 0 0"><a href="/docs-agent" style="color:var(--accent);text-decoration:none">📘 完整 Agent API →</a></p>
     </div>
   </div>
@@ -337,11 +333,7 @@ async function loadRooms() {
         ? `<button class="ghost" data-join="${g.game_id}" style="padding:2px 10px;font-size:12px">加入</button>`
         : `<button class="ghost" data-join="${g.game_id}" style="padding:2px 10px;font-size:12px" disabled>已满</button>`;
       const watchBtn = `<button class="ghost" data-watch="${g.game_id}" style="padding:2px 10px;font-size:12px;margin-left:4px">旁观</button>`;
-      const adminTokVal = ($("adminToken") && $("adminToken").value.trim()) || "";
-      const adminBtn = adminTokVal
-        ? `<button class="ghost" data-disband="${g.game_id}" style="padding:2px 10px;font-size:12px;margin-left:4px;color:var(--bad);border-color:#fca5a5">解散</button>`
-        : "";
-      const btn = joinBtn + watchBtn + adminBtn;
+      const btn = joinBtn + watchBtn;
       return `<div class="row" style="justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 0">
         <div>
           <code style="font-size:12px">${g.game_id}</code>
@@ -359,21 +351,6 @@ async function loadRooms() {
     box.querySelectorAll('[data-watch]').forEach(b => {
       b.onclick = () => watchGame(b.dataset.watch);
     });
-    box.querySelectorAll('[data-disband]').forEach(b => {
-      b.onclick = async () => {
-        const gid = b.dataset.disband;
-        const adminTok = $("adminToken").value.trim();
-        if (!adminTok) { alert("请先在大厅填入管理员 Token"); return; }
-        if (!confirm("确认以管理员身份解散房间 " + gid + " ？")) return;
-        try {
-          await api("POST", `/api/games/${gid}/disband`, { admin_token: adminTok });
-          log("已解散房间 " + gid, "me");
-          loadRooms();
-        } catch (e) {
-          log("解散失败: " + e.message, "err");
-        }
-      };
-    });
   } catch (e) {
     box.innerHTML = '<span class="err">加载失败: ' + e.message + '</span>';
   }
@@ -381,28 +358,16 @@ async function loadRooms() {
 
 $("btnLeaveRoom").onclick = () => leaveRoom();
 $("btnDisband").onclick = async () => {
-  if (!gameId) return;
+  if (!gameId || !token) return;
   if (!confirm("确认解散房间 " + gameId + " ？此操作不可撤销。")) return;
-  const body = {};
-  if (token) body.token = token;
-  const adminTok = $("adminToken").value.trim();
-  if (adminTok) body.admin_token = adminTok;
   try {
-    const r = await api("POST", `/api/games/${gameId}/disband`, body);
-    log(`房间已解散 (${r.by})`, "me");
+    await api("POST", `/api/games/${gameId}/disband`, { token });
+    log("房间已解散", "me");
     leaveRoom();
   } catch (e) {
     log("解散失败: " + e.message, "err");
   }
 };
-const _adminInp = $("adminToken");
-if (_adminInp) {
-  _adminInp.value = localStorage.getItem("ai_pg_admin_token") || "";
-  _adminInp.addEventListener("input", () => {
-    localStorage.setItem("ai_pg_admin_token", _adminInp.value);
-    loadRooms();
-  });
-}
 const _bioInp = $("bio");
 if (_bioInp) {
   _bioInp.value = localStorage.getItem("ai_pg_bio") || "";
@@ -606,11 +571,10 @@ function render() {
   if (!state.you) {
     h.innerHTML = '<span class="muted">（旁观模式，看不到手牌）</span>';
   }
-  // disband button visibility
+  // disband button visibility (owner only)
   const isOwner = state.you && state.owner_seat === state.you.seat;
-  const adminTok = ($("adminToken") && $("adminToken").value) || "";
-  $("btnDisband").style.display = (isOwner || adminTok) ? "" : "none";
-  $("btnDisband").textContent = isOwner ? "解散房间" : "解散房间 (管理员)";
+  $("btnDisband").style.display = isOwner ? "" : "none";
+  $("btnDisband").textContent = "解散房间";
   // disbanded state
   if (state.disbanded) {
     $("turnClock").className = "clock idle";

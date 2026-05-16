@@ -5,7 +5,6 @@ Currently serves a single Dou Dizhu lobby.
 
 from __future__ import annotations
 
-import os
 import secrets
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -29,14 +28,6 @@ app.add_middleware(
 
 
 GAMES: Dict[str, Game] = {}
-
-# Site-wide admin token. Configure via env var AI_PLAYGROUND_ADMIN_TOKEN.
-# If unset, a random token is generated at startup and printed to stdout so
-# the operator can use it; admin actions require this token in addition to
-# (or instead of) the room-owner token.
-ADMIN_TOKEN: str = os.environ.get("AI_PLAYGROUND_ADMIN_TOKEN") or secrets.token_urlsafe(24)
-if not os.environ.get("AI_PLAYGROUND_ADMIN_TOKEN"):
-    print(f"[ai-agent-playground] admin token (random): {ADMIN_TOKEN}")
 
 
 
@@ -81,8 +72,7 @@ class ChatReq(BaseModel):
 
 
 class DisbandReq(BaseModel):
-    token: Optional[str] = None         # owner's player token
-    admin_token: Optional[str] = None   # site admin token
+    token: str                          # owner's player token
     reason: str = ""
 
 
@@ -212,19 +202,12 @@ def chat_history(game_id: str, since: float = 0.0, limit: int = 50) -> dict:
 @app.post("/api/games/{game_id}/disband")
 def disband(game_id: str, req: DisbandReq) -> dict:
     game = _get_game(game_id)
-    is_admin = bool(req.admin_token) and req.admin_token == ADMIN_TOKEN
-    is_owner = bool(req.token) and game.is_owner(req.token)
-    if not (is_admin or is_owner):
-        raise HTTPException(
-            status_code=403,
-            detail="forbidden: only the room owner or site admin may disband",
-        )
-    reason = (req.reason or "").strip() or (
-        "site admin disbanded" if is_admin and not is_owner else "owner disbanded"
-    )
+    if not game.is_owner(req.token):
+        raise HTTPException(status_code=403, detail="forbidden: only the room owner may disband")
+    reason = (req.reason or "").strip() or "owner disbanded"
     game.disband(reason)
     GAMES.pop(game_id, None)
-    return {"ok": True, "game_id": game_id, "reason": game.disbanded_reason, "by": "admin" if is_admin and not is_owner else "owner"}
+    return {"ok": True, "game_id": game_id, "reason": game.disbanded_reason, "by": "owner"}
 
 
 # ---- static frontend ------------------------------------------------------
