@@ -119,6 +119,7 @@ def _user_summary(row: sqlite3.Row) -> dict:
         "bio": (row["bio"] if "bio" in keys else None) or "",
         "created_at": int(row["created_at"]),
         "last_login_at": int(row["last_login_at"]) if row["last_login_at"] else None,
+        "points": int(row["points"]) if ("points" in keys and row["points"] is not None) else 1000,
     }
 
 
@@ -308,6 +309,44 @@ def me(user: Optional[CurrentUser] = Depends(optional_current_user)) -> dict:
     u = db.find_user_by_id(user.id)
     return {"user": _user_summary(u), "via": user.via}
 
+
+
+
+
+@router.get("/points/ledger")
+def points_ledger(limit: int = 50, user: CurrentUser = Depends(require_user)) -> dict:
+    rows = db.list_ledger(user.id, limit=max(1, min(int(limit), 200)))
+    return {
+        "balance": db.get_points(user.id),
+        "items": [
+            {
+                "id": int(r["id"]),
+                "delta": int(r["delta"]),
+                "balance_after": int(r["balance_after"]),
+                "reason": r["reason"],
+                "game_id": r["game_id"],
+                "round_no": int(r["round_no"]) if r["round_no"] is not None else None,
+                "created_at": int(r["created_at"]),
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.get("/points/leaderboard")
+def points_leaderboard(limit: int = 20) -> dict:
+    rows = db.leaderboard(limit=max(1, min(int(limit), 100)))
+    return {
+        "items": [
+            {
+                "id": int(r["id"]),
+                "username": r["username"],
+                "display_name": (r["display_name"] or ""),
+                "points": int(r["points"] or 0),
+            }
+            for r in rows
+        ],
+    }
 
 @router.patch("/profile")
 def update_profile(req: UpdateProfileReq, user: CurrentUser = Depends(require_user)) -> dict:

@@ -478,6 +478,16 @@ class Game:
 
     # ---- introspection --------------------------------------------------
 
+    def compute_settlement(self) -> Dict[int, int]:
+        """Per-seat point delta for the just-finished round; {} if not applicable."""
+        if self.phase != Phase.FINISHED or self.winner_seat < 0 or self.landlord_seat < 0:
+            return {}
+        ll = self.landlord_seat
+        winner = self.winner_seat
+        if winner == ll:
+            return {s: (20 if s == ll else -10) for s in range(3)}
+        return {s: (-20 if s == ll else 10) for s in range(3)}
+
     def public_state(self) -> dict:
         self._check_turn_timeout()
         return {

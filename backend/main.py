@@ -51,6 +51,8 @@ GAMES: Dict[str, Game] = {}
 # user_id -> game_id of the single room they're currently associated with
 # (set when they create OR join; cleared when that room is disbanded/reaped)
 USER_ROOM: Dict[int, str] = {}
+# game_id -> {seat: user_id} for point settlement
+GAME_USERS: Dict[str, Dict[int, int]] = {}
 _LOCK = threading.Lock()
 
 # Idle reaper: kill rooms that haven't seen any activity for this many seconds.
@@ -186,6 +188,48 @@ def _err(e) -> HTTPException:
     return HTTPException(status_code=400, detail=str(e))
 
 
+def _maybe_settle(game_id: str, game) -> None:
+    """Apply points settlement when a hand/round has just finished.
+
+    Idempotent via `game._points_settled_round`. Safe to call on every
+    state-poll or after any action.
+    """
+    if game is None:
+        return
+    if getattr(game, "disbanded", False):
+        return
+    phase = getattr(game, "phase", None)
+    phase_val = getattr(phase, "value", phase)
+    if phase_val != "finished":
+        return
+    rn = int(getattr(game, "round_no", 1) or 1)
+    if getattr(game, "_points_settled_round", 0) >= rn:
+        return
+    try:
+        deltas = game.compute_settlement()
+    except Exception as e:
+        print(f"[points] compute_settlement failed for {game_id}: {e}", flush=True)
+        game._points_settled_round = rn
+        return
+    if not deltas:
+        game._points_settled_round = rn
+        return
+    seat_to_user = GAME_USERS.get(game_id, {})
+    gtype = getattr(game, "game_type", "?")
+    for seat, delta in deltas.items():
+        uid = seat_to_user.get(int(seat))
+        if uid is None or not isinstance(delta, int) or delta == 0:
+            continue
+        try:
+            auth_db.apply_points(uid, int(delta),
+                                 reason=f"{gtype}:round_end",
+                                 game_id=game_id,
+                                 round_no=rn)
+        except Exception as e:
+            print(f"[points] apply_points failed uid={uid} delta={delta}: {e}", flush=True)
+    game._points_settled_round = rn
+
+
 # ---- API ------------------------------------------------------------------
 
 
@@ -238,6 +282,7 @@ def create_game(req: CreateGameReq, user: CurrentUser = Depends(require_user)) -
             )
         GAMES[game_id] = game
         USER_ROOM[user.id] = game_id
+        GAME_USERS[game_id] = {}
     # Print spectator token to server log only (never exposed via any API).
     # Operator can read it with: grep SPECTATOR ~/logs/ai-agent-playground.log
     print(f"[SPECTATOR] game_id={game_id} game_type={game_type} spectator_token={game.spectator_token}", flush=True)
@@ -294,6 +339,7 @@ def join(game_id: str, req: JoinReq, user: CurrentUser = Depends(require_user)) 
         raise _err(e)
     with _LOCK:
         USER_ROOM[user.id] = game_id
+        GAME_USERS.setdefault(game_id, {})[pl.seat] = user.id
     return JoinResp(player_id=pl.player_id, seat=pl.seat, token=pl.token)
 
 
@@ -304,6 +350,7 @@ def get_state(
     spectator: Optional[str] = None,
 ) -> dict:
     game = _get_game(game_id)
+    _maybe_settle(game_id, game)
     if token:
         try:
             return game.private_state(token)
@@ -333,6 +380,7 @@ def play(game_id: str, req: PlayReq) -> dict:
         result = game.play(req.token, req.cards)
     except GameError as e:
         raise _err(e)
+    _maybe_settle(game_id, game)
     state = game.private_state(req.token)
     state["result"] = result
     return state
@@ -369,6 +417,7 @@ def texas_action(game_id: str, req: TexasActionReq) -> dict:
             raise HTTPException(status_code=400, detail=f"unknown action {a!r} (expected fold|check|call|raise|allin)")
     except TexasError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    _maybe_settle(game_id, game)
     state = game.private_state(req.token)
     state["result"] = result
     return state

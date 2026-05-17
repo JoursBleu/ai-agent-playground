@@ -491,6 +491,11 @@ const I18N = {
     lobby_rule_referee: 'referee (裁判 agent，暂未开放)',
     lobby_btn_create: '创建并入座',
     lobby_btn_create_ddz: '创建斗地主房间', lobby_btn_create_zjh: '创建炸金花房间',
+    points_label: '积分', menu_points: '我的积分',
+    points_modal_title: '积分明细', points_balance: '当前余额', points_no_records: '暂无记录',
+    points_col_time: '时间', points_col_delta: '变化', points_col_balance: '余额', points_col_reason: '原因', points_col_round: '局号',
+    points_leaderboard: '积分榜',
+    points_log_won: '本局赢得积分', points_log_lost: '本局扣除积分',
     lobby_gt_texas: '德州扑克', lobby_btn_create_texas: '创建德州扑克房间',
     texas_board_title: '♠️ 德州扑克 No-Limit Hold\u2019em',
     texas_round: '第', texas_round_unit: '手', texas_street: '阶段：',
@@ -657,6 +662,11 @@ const I18N = {
     lobby_rule_referee: 'referee (referee agent, coming soon)',
     lobby_btn_create: 'Create & join',
     lobby_btn_create_ddz: 'Create Fight-the-Landlord room', lobby_btn_create_zjh: 'Create Three-Card-Brag room',
+    points_label: 'Points', menu_points: 'My points',
+    points_modal_title: 'Points ledger', points_balance: 'Current balance', points_no_records: 'No records yet',
+    points_col_time: 'Time', points_col_delta: 'Delta', points_col_balance: 'Balance', points_col_reason: 'Reason', points_col_round: 'Round',
+    points_leaderboard: 'Leaderboard',
+    points_log_won: 'Won points', points_log_lost: 'Lost points',
     lobby_gt_texas: "Texas Hold'em", lobby_btn_create_texas: "Create Texas Hold'em room",
     texas_board_title: "\u2660\uFE0F Texas Hold'em (No-Limit)",
     texas_round: 'Hand #', texas_round_unit: '', texas_street: 'Street: ',
@@ -891,10 +901,12 @@ function renderUserbar() {
         <button class="user-chip-btn" id="userChipBtn">
           ${admin ? `<span class="admin-dot" title="${escapeHtml(t('admin_dot_title'))}"></span>` : ''}
           <span>${escapeHtml(currentUser.username)}</span>
-          <span style="color:var(--muted);font-size:11px">▼</span>
+          <span class="points-pill" title="${escapeHtml(t('points_label'))}" style="margin-left:6px;padding:1px 8px;border-radius:10px;background:#fde68a;color:#78350f;font-size:11px;font-weight:600">★ ${currentUser.points != null ? currentUser.points : 0}</span>
+          <span style="color:var(--muted);font-size:11px;margin-left:4px">▼</span>
         </button>
         <div id="userMenu" class="menu">
           <button data-act="account">${escapeHtml(t('menu_account'))}</button>
+          <button data-act="points">${escapeHtml(t('menu_points'))}</button>
           ${admin ? `<button data-act="admin">${escapeHtml(t('menu_admin'))}</button>` : ''}
           <button data-act="logout">${escapeHtml(t('btn_logout'))}</button>
         </div>
@@ -907,7 +919,10 @@ function renderUserbar() {
         $('userMenu').classList.remove('open');
         const act = b.dataset.act;
         if (act === 'logout') doLogout();
-        else openModal(act);
+        else {
+          openModal(act);
+          if (act === 'points') refreshPoints();
+        }
       };
     });
   } else {
@@ -1469,6 +1484,69 @@ function tickClock() {
   document.querySelectorAll("#bidArea button, #playArea button").forEach(b => { b.disabled = myTurn && !canAct; });
 }
 
+
+
+async function refreshPoints() {
+  if (!currentUser) return;
+  try {
+    const r = await api('GET', '/api/auth/points/ledger?limit=100');
+    $('pointsBalance').textContent = r.balance != null ? r.balance : 0;
+    const box = $('pointsLedgerBox');
+    box.innerHTML = "";
+    if (!r.items || !r.items.length) {
+      box.innerHTML = `<div class="muted">${escapeHtml(t('points_no_records'))}</div>`;
+    } else {
+      const head = document.createElement('div');
+      head.className = 'row';
+      head.style.cssText = 'gap:8px;padding:4px 0;border-bottom:1px solid var(--border);font-weight:600;font-size:12px;color:var(--muted)';
+      head.innerHTML = `<div style="flex:0 0 140px">${escapeHtml(t('points_col_time'))}</div><div style="flex:0 0 70px">${escapeHtml(t('points_col_delta'))}</div><div style="flex:0 0 80px">${escapeHtml(t('points_col_balance'))}</div><div style="flex:1">${escapeHtml(t('points_col_reason'))}</div><div style="flex:0 0 90px">${escapeHtml(t('points_col_round'))}</div>`;
+      box.appendChild(head);
+      for (const it of r.items) {
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.style.cssText = 'gap:8px;padding:4px 0;border-bottom:1px solid var(--border);font-size:13px';
+        const d = new Date((it.created_at || 0) * 1000);
+        const tstr = d.toLocaleString();
+        const sign = it.delta > 0 ? '+' : '';
+        const color = it.delta > 0 ? 'var(--good)' : (it.delta < 0 ? 'var(--bad)' : 'inherit');
+        row.innerHTML = `<div style="flex:0 0 140px;color:var(--muted)">${escapeHtml(tstr)}</div><div style="flex:0 0 70px;color:${color};font-weight:600">${sign}${it.delta}</div><div style="flex:0 0 80px">${it.balance_after}</div><div style="flex:1">${escapeHtml(it.reason || '')}${it.game_id ? ` <span class="muted">[${escapeHtml(it.game_id)}]</span>` : ''}</div><div style="flex:0 0 90px;color:var(--muted)">${it.round_no != null ? '#' + it.round_no : '—'}</div>`;
+        box.appendChild(row);
+      }
+    }
+  } catch (e) { log('[points] ' + e.message, 'err'); }
+  try {
+    const r = await api('GET', '/api/auth/points/leaderboard?limit=20');
+    const box = $('pointsLeaderboardBox');
+    box.innerHTML = "";
+    (r.items || []).forEach((it, i) => {
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.style.cssText = 'gap:8px;padding:3px 0;font-size:13px';
+      const name = it.display_name || it.username;
+      row.innerHTML = `<div style="flex:0 0 30px;color:var(--muted)">#${i+1}</div><div style="flex:1">${escapeHtml(name)} <span class="muted" style="font-size:11px">@${escapeHtml(it.username)}</span></div><div style="flex:0 0 80px;font-weight:600">★ ${it.points}</div>`;
+      box.appendChild(row);
+    });
+  } catch (_) {}
+}
+
+// Track game phase transitions to refresh /me (and points pill) on round end.
+let _aap_lastGamePhase = null;
+async function _refreshMeQuiet() {
+  try {
+    const r = await api('GET', '/api/auth/me');
+    if (r && r.user) {
+      const prev = currentUser ? currentUser.points : null;
+      currentUser = r.user;
+      renderUserbar();
+      if (prev != null && currentUser.points != null && currentUser.points !== prev) {
+        const d = currentUser.points - prev;
+        log(`[points] ${d > 0 ? '+' : ''}${d} → ${currentUser.points}`, d > 0 ? 'me' : 'err');
+      }
+    }
+  } catch (_) {}
+}
+
+
 async function refresh() {
   if (!gameId) return;
   try {
@@ -1482,6 +1560,10 @@ async function refresh() {
     }
     const s = await api("GET", url);
     state = s;
+    if (state && state.phase !== _aap_lastGamePhase) {
+      if (state.phase === 'finished') _refreshMeQuiet();
+      _aap_lastGamePhase = state.phase;
+    }
     if (!token) {
       // spectator: chat history not embedded in public_state, pull separately
       try {
@@ -2300,6 +2382,22 @@ render = function() { _origRender(); _refreshChatInputState(); };
     <header><h2 data-i18n="modal_admin">用户管理</h2><button class="x" data-close>×</button></header>
     <div class="body" id="adminBody" data-i18n="lobby_loading">加载中…</div>
     <div class="footer"><span></span><div class="right"><button class="ghost" data-close data-i18n="close">关闭</button></div></div>
+  </div>
+</div>
+
+<div class="modal-bg" data-mod="points" style="display:none">
+  <div class="modal-card" style="max-width:640px;width:92%;max-height:80vh;overflow:auto">
+    <div class="row" style="justify-content:space-between;margin-bottom:8px">
+      <strong data-i18n="points_modal_title">积分明细</strong>
+      <button class="ghost" style="padding:4px 12px;font-size:12px" data-close-modal>×</button>
+    </div>
+    <div class="row" style="gap:12px;margin-bottom:10px">
+      <div><span class="muted" data-i18n="points_balance">当前余额：</span> <strong id="pointsBalance">—</strong></div>
+    </div>
+    <div id="pointsLedgerBox" class="table"></div>
+    <hr style="margin:14px 0;border:none;border-top:1px solid var(--border)" />
+    <div><strong data-i18n="points_leaderboard">积分榜</strong></div>
+    <div id="pointsLeaderboardBox" class="table" style="margin-top:6px"></div>
   </div>
 </div>
 

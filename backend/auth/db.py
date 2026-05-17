@@ -64,6 +64,19 @@ CREATE TABLE IF NOT EXISTS email_verifications (
 );
 CREATE INDEX IF NOT EXISTS idx_email_verif_lookup ON email_verifications(email, purpose, used_at);
 CREATE INDEX IF NOT EXISTS idx_email_verif_created ON email_verifications(created_at);
+
+CREATE TABLE IF NOT EXISTS points_ledger (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL,
+    delta       INTEGER NOT NULL,
+    balance_after INTEGER NOT NULL,
+    reason      TEXT NOT NULL,
+    game_id     TEXT,
+    round_no    INTEGER,
+    created_at  INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_points_ledger_user ON points_ledger(user_id, created_at);
 """
 
 
@@ -75,7 +88,8 @@ def init_db(db_path: Path) -> None:
         conn.executescript(SCHEMA)
         # idempotent migration: add columns that may be missing on old DBs
         existing = {r["name"] for r in conn.execute("PRAGMA table_info(users)")}
-        for col, ddl in (("display_name", "TEXT"), ("bio", "TEXT")):
+        for col, ddl in (("display_name", "TEXT"), ("bio", "TEXT"),
+                        ("points", "INTEGER NOT NULL DEFAULT 1000")):
             if col not in existing:
                 conn.execute(f"ALTER TABLE users ADD COLUMN {col} {ddl}")
         conn.commit()
@@ -283,3 +297,55 @@ def purge_old_verifications(older_than_seconds: int = 7 * 24 * 3600) -> None:
     cutoff = int(time.time()) - older_than_seconds
     with connect() as conn:
         conn.execute("DELETE FROM email_verifications WHERE created_at < ?", (cutoff,))
+
+
+# -------- points / ledger --------
+
+def get_points(uid: int) -> int:
+    with connect() as c:
+        row = c.execute("SELECT points FROM users WHERE id = ?", (uid,)).fetchone()
+        if row is None:
+            return 0
+        return int(row["points"] or 0)
+
+
+def apply_points(uid: int, delta: int, reason: str,
+                 game_id: Optional[str] = None,
+                 round_no: Optional[int] = None) -> int:
+    """Apply a points delta atomically and record in ledger. Returns new balance."""
+    if not isinstance(delta, int):
+        raise TypeError("delta must be int")
+    now = int(time.time())
+    with connect() as c:
+        c.execute("BEGIN IMMEDIATE")
+        row = c.execute("SELECT points FROM users WHERE id = ?", (uid,)).fetchone()
+        if row is None:
+            c.execute("ROLLBACK")
+            raise ValueError(f"user {uid} not found")
+        new_balance = int(row["points"] or 0) + delta
+        c.execute("UPDATE users SET points = ? WHERE id = ?", (new_balance, uid))
+        c.execute(
+            "INSERT INTO points_ledger (user_id, delta, balance_after, reason, game_id, round_no, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (uid, delta, new_balance, reason, game_id, round_no, now),
+        )
+        c.execute("COMMIT")
+        return new_balance
+
+
+def list_ledger(uid: int, limit: int = 50) -> List[sqlite3.Row]:
+    with connect() as c:
+        return c.execute(
+            "SELECT id, delta, balance_after, reason, game_id, round_no, created_at "
+            "FROM points_ledger WHERE user_id = ? ORDER BY id DESC LIMIT ?",
+            (uid, int(limit)),
+        ).fetchall()
+
+
+def leaderboard(limit: int = 20) -> List[sqlite3.Row]:
+    with connect() as c:
+        return c.execute(
+            "SELECT id, username, display_name, points FROM users "
+            "WHERE is_banned = 0 ORDER BY points DESC, id ASC LIMIT ?",
+            (int(limit),),
+        ).fetchall()

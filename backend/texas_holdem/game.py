@@ -238,6 +238,7 @@ class TexasGame:
 
         self.chat: List[ChatMsg] = []
         self._timeout_auto: bool = False
+        self._hand_start_chips: Dict[int, int] = {}
 
     def _touch(self):
         self.last_active = time.time()
@@ -335,6 +336,8 @@ class TexasGame:
             p.folded = (p.chips <= 0)
             p.all_in = False
             p.has_acted_this_street = False
+        self._hand_start_chips = {i: (p.chips if p is not None else 0)
+                                  for i, p in enumerate(self.players)}
         deck = _all_card_codes()
         self._rng.shuffle(deck)
         self._deck = deck
@@ -737,6 +740,19 @@ class TexasGame:
             "folded": p.folded,
             "all_in": p.all_in,
         }
+
+    def compute_settlement(self) -> Dict[int, int]:
+        """Per-seat point delta for the just-finished hand (chip delta 1:1)."""
+        if self.phase != Phase.FINISHED:
+            return {}
+        out: Dict[int, int] = {}
+        for i in range(self.n_seats):
+            p = self.players[i]
+            if p is None:
+                continue
+            start = self._hand_start_chips.get(i, p.chips)
+            out[i] = p.chips - start
+        return out
 
     def public_state(self) -> dict:
         self._check_turn_timeout()
