@@ -33,6 +33,8 @@
   main.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
   main.layout .content { min-width: 0; }
   main.layout .sidebar, main.layout .sidebar-left { position: sticky; top: 20px; }
+  /* lobby mode: only the game-picker panel; hide clock/seats panels */
+  body:not(.in-room) main.layout .sidebar-left .sidebar-panel:not(.game-picker-panel) { display: none; }
   /* lobby mode: show left sidebar (game picker), hide right sidebar (seats) */
   body:not(.in-room) main.layout { grid-template-columns: 280px minmax(0, 1fr); }
   body:not(.in-room) main.layout .sidebar { display: none; }
