@@ -240,6 +240,10 @@
         <span class="game-pick-emoji">🀄</span>
         <span class="game-pick-name" data-i18n="lobby_gt_ddz">斗地主</span>
       </button>
+      <button type="button" class="game-pick-item" data-game="texas_holdem">
+        <span class="game-pick-emoji">♠️</span>
+        <span class="game-pick-name" data-i18n="lobby_gt_texas">德州扑克</span>
+      </button>
     </div>
   </div>
   <div class="panel sidebar-panel">
@@ -376,6 +380,63 @@
   <div class="status" id="zjhBoardStatus"></div>
 </section>
 
+<section class="panel" id="texasBoard" style="display:none">
+  <div class="row" style="justify-content:space-between;margin-bottom:10px">
+    <div>
+      <strong data-i18n="texas_board_title">♠️ 德州扑克 No-Limit Hold'em</strong>
+      <span class="muted" id="texasBoardRoomTag" style="font-size:12px;margin-left:6px"></span>
+      <span id="texasTurnClock" class="clock idle" style="margin-left:10px">—</span>
+    </div>
+    <div class="row" style="gap:6px">
+      <button id="btnTexasRestart" class="ghost" style="padding:4px 12px;font-size:12px;display:none;color:var(--good);border-color:#86efac" data-i18n="board_restart">再来一局</button>
+      <button id="btnTexasDisband" class="ghost" style="padding:4px 12px;font-size:12px;display:none;color:var(--bad);border-color:#fca5a5" data-i18n="board_disband">解散房间</button>
+      <button id="btnTexasLeaveRoom" class="ghost" style="padding:4px 12px;font-size:12px" data-i18n="board_leave">← 返回大厅</button>
+    </div>
+  </div>
+
+  <div class="zjh-meta">
+    <div class="zjh-pill"><span class="muted" data-i18n="texas_round">第</span> <strong id="texasRound">—</strong> <span class="muted" data-i18n="texas_round_unit">手</span></div>
+    <div class="zjh-pill"><span class="muted" data-i18n="texas_street">阶段：</span><strong id="texasStreet">—</strong></div>
+    <div class="zjh-pill"><span class="muted" data-i18n="texas_pot">底池：</span><strong id="texasPot">0</strong></div>
+    <div class="zjh-pill"><span class="muted" data-i18n="texas_to_call">当前下注：</span><strong id="texasCurBet">0</strong></div>
+    <div class="zjh-pill"><span class="muted" data-i18n="texas_blinds">盲注：</span><strong id="texasBlinds">1/2</strong></div>
+    <div class="zjh-pill"><span class="muted" data-i18n="texas_dealer">庄家：</span><strong id="texasDealer">—</strong></div>
+  </div>
+
+  <div style="margin: 14px 0;">
+    <div class="muted" style="font-size:12px;margin-bottom:4px" data-i18n="texas_community">公共牌</div>
+    <div id="texasCommunity" class="hand"></div>
+  </div>
+
+  <div style="margin: 14px 0;">
+    <div class="muted" style="font-size:12px;margin-bottom:4px" data-i18n="texas_seats">座位</div>
+    <div id="texasSeats" class="table"></div>
+  </div>
+
+  <div style="margin: 14px 0;">
+    <div class="muted" style="font-size:12px;margin-bottom:4px" data-i18n="texas_history">本手记录</div>
+    <div class="table" id="texasHistory"><span class="muted">—</span></div>
+  </div>
+
+  <div style="margin: 14px 0;">
+    <div class="muted" style="font-size:12px;margin-bottom:4px" data-i18n="texas_my_hand">你的手牌</div>
+    <div id="texasHand" class="hand"></div>
+  </div>
+
+  <div class="row" id="texasActionArea" style="display:none;flex-wrap:wrap;gap:8px;align-items:center">
+    <button id="btnTexasFold" class="ghost" data-i18n="texas_btn_fold">弃牌</button>
+    <button id="btnTexasCheck" data-i18n="texas_btn_check">过牌</button>
+    <button id="btnTexasCall" data-i18n="texas_btn_call">跟注</button>
+    <span class="muted" style="font-size:12px" data-i18n="texas_raise_to">加注至</span>
+    <input id="texasRaiseInput" type="number" min="1" style="width:80px;padding:4px 6px" />
+    <button id="btnTexasRaise" data-i18n="texas_btn_raise">加注</button>
+    <button id="btnTexasAllin" class="ghost" style="color:var(--bad);border-color:#fca5a5" data-i18n="texas_btn_allin">All-in</button>
+    <span id="texasTurnInfo" class="status"></span>
+  </div>
+
+  <div class="status" id="texasBoardStatus"></div>
+</section>
+
 <section class="panel" id="chatPanel" style="display:none">
   <div class="muted" style="font-size:12px;margin-bottom:4px" data-i18n="chat_title">💬 房间聊天</div>
   <div class="chat" id="chat"></div>
@@ -430,6 +491,19 @@ const I18N = {
     lobby_rule_referee: 'referee (裁判 agent，暂未开放)',
     lobby_btn_create: '创建并入座',
     lobby_btn_create_ddz: '创建斗地主房间', lobby_btn_create_zjh: '创建炸金花房间',
+    lobby_gt_texas: '德州扑克', lobby_btn_create_texas: '创建德州扑克房间',
+    texas_board_title: '♠️ 德州扑克 No-Limit Hold\u2019em',
+    texas_round: '第', texas_round_unit: '手', texas_street: '阶段：',
+    texas_pot: '底池：', texas_to_call: '当前下注：',
+    texas_blinds: '盲注：', texas_dealer: '庄家：',
+    texas_community: '公共牌', texas_seats: '座位', texas_history: '本手记录', texas_my_hand: '你的手牌',
+    texas_raise_to: '加注至',
+    texas_btn_fold: '弃牌', texas_btn_check: '过牌', texas_btn_call: '跟注',
+    texas_btn_raise: '加注', texas_btn_allin: 'All-in',
+    texas_confirm_fold: '确认弃牌？',
+    texas_invalid_raise: '请输入有效的加注目标',
+    texas_street_preflop: '翻牌前', texas_street_flop: '翻牌', texas_street_turn: '转牌', texas_street_river: '河牌', texas_street_showdown: '摊牌',
+    texas_status_folded: '已弃牌', texas_status_allin: 'All-in', texas_status_acting: '行动中',
     lobby_game_type: '游戏', lobby_gt_ddz: '斗地主', lobby_gt_zjh: '炸金花',
     zjh_board_title: '🎴 炸金花',
     zjh_round: '第', zjh_round_unit: '局',
@@ -583,6 +657,19 @@ const I18N = {
     lobby_rule_referee: 'referee (referee agent, coming soon)',
     lobby_btn_create: 'Create & join',
     lobby_btn_create_ddz: 'Create Fight-the-Landlord room', lobby_btn_create_zjh: 'Create Three-Card-Brag room',
+    lobby_gt_texas: "Texas Hold'em", lobby_btn_create_texas: "Create Texas Hold'em room",
+    texas_board_title: "\u2660\uFE0F Texas Hold'em (No-Limit)",
+    texas_round: 'Hand #', texas_round_unit: '', texas_street: 'Street: ',
+    texas_pot: 'Pot: ', texas_to_call: 'Current bet: ',
+    texas_blinds: 'Blinds: ', texas_dealer: 'Dealer: ',
+    texas_community: 'Community cards', texas_seats: 'Seats', texas_history: 'Action log', texas_my_hand: 'Your hole cards',
+    texas_raise_to: 'Raise to',
+    texas_btn_fold: 'Fold', texas_btn_check: 'Check', texas_btn_call: 'Call',
+    texas_btn_raise: 'Raise', texas_btn_allin: 'All-in',
+    texas_confirm_fold: 'Confirm fold?',
+    texas_invalid_raise: 'Enter a valid raise amount',
+    texas_street_preflop: 'Pre-flop', texas_street_flop: 'Flop', texas_street_turn: 'Turn', texas_street_river: 'River', texas_street_showdown: 'Showdown',
+    texas_status_folded: 'Folded', texas_status_allin: 'All-in', texas_status_acting: 'To act',
     lobby_game_type: 'Game', lobby_gt_ddz: 'Fight the Landlord', lobby_gt_zjh: 'Three Card Brag',
     zjh_board_title: '🎴 Three Card Brag (Zhajinhua)',
     zjh_round: 'Round', zjh_round_unit: '',
@@ -1198,7 +1285,12 @@ function setActiveGame(gt) {
   });
   // update create-button hint
   const btn = $("btnCreate");
-  if (btn) btn.textContent = (gt === 'zhajinhua' ? t('lobby_btn_create_zjh') : t('lobby_btn_create_ddz')) || t('lobby_btn_create');
+  if (btn) {
+    let k = 'lobby_btn_create_ddz';
+    if (gt === 'zhajinhua') k = 'lobby_btn_create_zjh';
+    else if (gt === 'texas_holdem') k = 'lobby_btn_create_texas';
+    btn.textContent = t(k) || t('lobby_btn_create');
+  }
   loadRooms();
 }
 (function bindGamePicker(){
@@ -1234,7 +1326,7 @@ async function loadRooms() {
         <div style="min-width:0;flex:1">
           <div style="font-size:14px;font-weight:600">${roomName}
             <code style="font-size:11px;color:var(--muted);font-weight:400;margin-left:6px">${g.game_id}</code>
-            <span class="gt-tag gt-${escapeHtml(g.game_type||'doudizhu')}" style="font-size:11px;margin-left:6px">${escapeHtml((g.game_type === 'zhajinhua') ? t('lobby_gt_zjh') : t('lobby_gt_ddz'))}</span>
+            <span class="gt-tag gt-${escapeHtml(g.game_type||'doudizhu')}" style="font-size:11px;margin-left:6px">${escapeHtml(g.game_type === 'zhajinhua' ? t('lobby_gt_zjh') : (g.game_type === 'texas_holdem' ? t('lobby_gt_texas') : t('lobby_gt_ddz')))}</span>
             <span style="color:${phaseColor};font-size:12px;margin-left:6px">${g.phase}</span>
             <span class="muted" style="font-size:12px;margin-left:6px">${g.rule_mode}</span>
           </div>
@@ -1487,9 +1579,12 @@ function renderCard(code, selectable) {
 function render() {
   if (!state) return;
   const isZjh = state.game_type === 'zhajinhua';
+  const isTexas = state.game_type === 'texas_holdem';
   if ($("zjhBoard")) $("zjhBoard").style.display = isZjh ? "" : "none";
-  $("board").style.display = isZjh ? "none" : "";
+  if ($("texasBoard")) $("texasBoard").style.display = isTexas ? "" : "none";
+  $("board").style.display = (isZjh || isTexas) ? "none" : "";
   if (isZjh) { renderZjh(); return; }
+  if (isTexas) { renderTexas(); return; }
   // seats -> render into left rail
   const seatsBox = $("seatsRail");
   if (seatsBox) {
@@ -1873,6 +1968,161 @@ async function _zjhAction(action, extra) {
   bind("btnZjhLeaveRoom", () => $("btnLeaveRoom").click());
   bind("btnZjhDisband", () => $("btnDisband").click());
   bind("btnZjhRestart", () => $("btnRestart").click());
+})();
+
+function renderTexas() {
+  if (!state) return;
+  const me = state.you || {};
+  const isOwner = !!me.is_owner;
+  const myTurn = !!me.is_your_turn;
+  const tc = state.turn_clock || {};
+  const canAct = !!tc.can_act;
+  const isPlaying = state.phase === 'playing';
+  const isFinished = state.phase === 'finished';
+
+  // Header
+  $("texasBoardRoomTag").textContent = state.name ? `[${state.name}]` : '';
+  $("texasRound").textContent = state.round_no != null ? state.round_no : '—';
+  $("texasPot").textContent = state.pot != null ? state.pot : 0;
+  $("texasCurBet").textContent = state.current_bet != null ? state.current_bet : 0;
+  $("texasBlinds").textContent = `${state.small_blind}/${state.big_blind}`;
+  $("texasDealer").textContent = state.dealer_seat >= 0 ? ('seat ' + state.dealer_seat) : '—';
+  const streetKey = `texas_street_${state.street || 'preflop'}`;
+  $("texasStreet").textContent = t(streetKey) || (state.street || '—');
+
+  // Community cards
+  const com = $("texasCommunity");
+  com.innerHTML = "";
+  const cc = state.community || [];
+  for (let i = 0; i < 5; i++) {
+    const card = document.createElement("span");
+    card.className = "card";
+    if (cc[i]) card.textContent = formatCard(cc[i]); else { card.textContent = '?'; card.classList.add('back'); }
+    com.appendChild(card);
+  }
+
+  // Seats panel
+  const seatsBox = $("texasSeats");
+  seatsBox.innerHTML = "";
+  (state.players || []).forEach((p, i) => {
+    const div = document.createElement("div");
+    let cls = "seat";
+    if (i === (state.current_turn)) cls += " active";
+    if (i === me.seat) cls += " me";
+    div.className = cls;
+    const tags = [];
+    if (i === state.dealer_seat) tags.push('<span class="badge">D</span>');
+    if (p.folded) tags.push(`<span class="muted">[${t('texas_status_folded')}]</span>`);
+    else if (p.all_in) tags.push(`<span class="muted" style="color:var(--bad)">[${t('texas_status_allin')}]</span>`);
+    else if (i === state.current_turn && isPlaying) tags.push(`<span class="muted" style="color:var(--good)">[${t('texas_status_acting')}]</span>`);
+    const name = p.joined ? (p.name || ('seat ' + i)) : `(empty seat ${i})`;
+    const chips = p.joined ? p.chips : 0;
+    const bet = p.joined ? p.bet_in_round : 0;
+    div.innerHTML = `<div class="row" style="justify-content:space-between;gap:8px"><div><strong>#${i}</strong> ${escapeHtml(name)} ${tags.join(' ')}</div><div class="muted">chips: <strong>${chips}</strong> · bet: <strong>${bet}</strong></div></div>`;
+    seatsBox.appendChild(div);
+  });
+
+  // History
+  const hist = $("texasHistory");
+  hist.innerHTML = "";
+  (state.history || []).slice(-30).forEach(h => {
+    const div = document.createElement("div");
+    let line = `seat ${h.seat}: ${h.action}`;
+    if (h.amount) line += ` (${h.amount})`;
+    if (h.note) line += ` — ${escapeHtml(h.note)}`;
+    div.textContent = line;
+    hist.appendChild(div);
+  });
+  if (!hist.children.length) hist.innerHTML = '<span class="muted">—</span>';
+
+  // My hand
+  const handBox = $("texasHand");
+  handBox.innerHTML = "";
+  (me.hand || []).forEach(c => {
+    const card = document.createElement("span");
+    card.className = "card";
+    card.textContent = formatCard(c);
+    handBox.appendChild(card);
+  });
+  if (!(me.hand || []).length) handBox.innerHTML = '<span class="muted">—</span>';
+
+  // Action area
+  const act = $("texasActionArea");
+  act.style.display = isPlaying && me.seat != null && !me.folded && !me.all_in ? "flex" : "none";
+  if (act.style.display !== "none") {
+    const callAmt = me.call_amount || 0;
+    const canCheck = !!me.can_check;
+    $("btnTexasFold").disabled = !myTurn || !canAct;
+    $("btnTexasCheck").disabled = !myTurn || !canAct || !canCheck;
+    $("btnTexasCall").disabled = !myTurn || !canAct || canCheck;
+    $("btnTexasCall").textContent = `${t('texas_btn_call')} (${callAmt})`;
+    $("btnTexasRaise").disabled = !myTurn || !canAct;
+    $("btnTexasAllin").disabled = !myTurn || !canAct;
+    const inp = $("texasRaiseInput");
+    if (inp) {
+      inp.min = me.min_raise_to;
+      inp.max = me.max_raise_to;
+      if (!inp.value || parseInt(inp.value, 10) < me.min_raise_to) inp.value = me.min_raise_to;
+    }
+    const info = $("texasTurnInfo");
+    if (info) {
+      if (myTurn && !canAct) info.textContent = `${t('zjh_thinking_phase') || 'thinking'} ${Math.ceil(tc.thinking_remaining || 0)}s`;
+      else if (myTurn) info.textContent = `${t('zjh_action_remaining') || 'action'} ${Math.ceil(tc.action_remaining || 0)}s`;
+      else info.textContent = "";
+    }
+  }
+
+  // Owner controls
+  $("btnTexasDisband").style.display = isOwner ? "" : "none";
+  const seated = (state.players || []).filter(p => p && p.joined).length;
+  const canRestart = isOwner && isFinished && seated >= 2 && !state.disbanded;
+  $("btnTexasRestart").style.display = canRestart ? "" : "none";
+
+  // Mirror turn clock
+  const sm = $("turnClock"), tm = $("texasTurnClock");
+  if (sm && tm) { tm.className = sm.className; tm.textContent = sm.textContent; }
+
+  // Status line
+  let status = "";
+  if (state.disbanded) status = state.disbanded_reason || 'disbanded';
+  else if (isFinished && state.last_showdown && state.last_showdown.length) {
+    const parts = state.last_showdown.map(r => {
+      const who = `seat ${r.seat}`;
+      const cat = r.rank ? r.rank.category_name : (r.reason || '');
+      return `${who}: +${r.won}${cat ? ' ('+cat+')' : ''}`;
+    });
+    status = parts.join('  ·  ');
+  }
+  $("texasBoardStatus").textContent = status;
+}
+
+async function _texasAction(action, extra) {
+  if (!gameId || !token) { log(t('log_need_login') || 'need login', 'err'); return; }
+  const body = Object.assign({ token, action }, extra || {});
+  try {
+    const r = await api("POST", `/api/games/${gameId}/texas/action`, body);
+    if (r && r.result) log(`[texas] ${action} → ${JSON.stringify(r.result)}`, 'me');
+    else log(`[texas] ${action} ok`, 'me');
+    refresh();
+  } catch (e) {
+    log(`[texas] ${action} fail: ${e.message}`, 'err');
+  }
+}
+
+(function bindTexas(){
+  const bind = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; };
+  bind("btnTexasFold", () => { if (confirm(t('texas_confirm_fold'))) _texasAction("fold"); });
+  bind("btnTexasCheck", () => _texasAction("check"));
+  bind("btnTexasCall", () => _texasAction("call"));
+  bind("btnTexasRaise", () => {
+    const v = parseInt(($("texasRaiseInput") || {}).value, 10);
+    if (!Number.isFinite(v) || v <= 0) { log(t('texas_invalid_raise'), 'err'); return; }
+    _texasAction("raise", { amount: v });
+  });
+  bind("btnTexasAllin", () => _texasAction("allin"));
+  bind("btnTexasLeaveRoom", () => $("btnLeaveRoom").click());
+  bind("btnTexasDisband", () => $("btnDisband").click());
+  bind("btnTexasRestart", () => $("btnRestart").click());
 })();
 
 function renderChat(msgs) {

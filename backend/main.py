@@ -26,6 +26,7 @@ from .auth.deps import CurrentUser, require_admin, require_user
 from .auth.routes import admin_router as auth_admin_router
 from .auth.routes import router as auth_router
 from .doudizhu.game import Game, GameError
+from .texas_holdem.game import TexasGame, TexasError
 
 
 _DEFAULT_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
@@ -120,7 +121,7 @@ class CreateGameReq(BaseModel):
     rule_mode: str = Field(default="builtin", description="builtin or referee")
     referee_url: Optional[str] = None
     seed: Optional[int] = None
-    game_type: str = Field(default="doudizhu", description="doudizhu")
+    game_type: str = Field(default="doudizhu", description="doudizhu | texas_holdem")
 
 
 class CreateGameResp(BaseModel):
@@ -204,18 +205,28 @@ def create_game(req: CreateGameReq, user: CurrentUser = Depends(require_user)) -
     if rule_mode != "builtin":
         raise HTTPException(status_code=400, detail="referee 规则模式暂未开放")
     game_type = (req.game_type or "doudizhu").strip().lower()
-    if game_type != "doudizhu":
-        raise HTTPException(status_code=400, detail=f"unknown game_type {game_type!r} (expected doudizhu)")
+    if game_type not in ("doudizhu", "texas_holdem"):
+        raise HTTPException(status_code=400, detail=f"unknown game_type {game_type!r} (expected doudizhu | texas_holdem)")
     game_id = secrets.token_hex(4)
     try:
-        game = Game(
-            game_id=game_id,
-            name=name,
-            description=desc,
-            rule_mode=rule_mode,
-            referee_url=None,
-            seed=req.seed,
-        )
+        if game_type == "texas_holdem":
+            game = TexasGame(
+                game_id=game_id,
+                name=name,
+                description=desc,
+                rule_mode=rule_mode,
+                referee_url=None,
+                seed=req.seed,
+            )
+        else:
+            game = Game(
+                game_id=game_id,
+                name=name,
+                description=desc,
+                rule_mode=rule_mode,
+                referee_url=None,
+                seed=req.seed,
+            )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     with _LOCK:
@@ -326,6 +337,41 @@ def play(game_id: str, req: PlayReq) -> dict:
     state["result"] = result
     return state
 
+
+
+
+# ---- texas_holdem-specific endpoint ---------------------------------------
+
+
+class TexasActionReq(BaseModel):
+    token: str
+    action: str                          # fold | check | call | raise | allin
+    amount: int = 0                      # for raise: bet_in_round target
+
+
+@app.post("/api/games/{game_id}/texas/action")
+def texas_action(game_id: str, req: TexasActionReq) -> dict:
+    game = _get_game(game_id)
+    _require_type(game, "texas_holdem")
+    a = (req.action or "").strip().lower()
+    try:
+        if a == "fold":
+            result = game.fold(req.token)
+        elif a == "check":
+            result = game.check(req.token)
+        elif a == "call":
+            result = game.call(req.token)
+        elif a == "raise":
+            result = game.raise_to(req.token, int(req.amount))
+        elif a in ("allin", "all_in", "all-in"):
+            result = game.all_in(req.token)
+        else:
+            raise HTTPException(status_code=400, detail=f"unknown action {a!r} (expected fold|check|call|raise|allin)")
+    except TexasError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    state = game.private_state(req.token)
+    state["result"] = result
+    return state
 
 
 
