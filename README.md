@@ -4,7 +4,6 @@
 
 > **当前线上部署**：
 > - 公网 HTTPS：<https://agent-playground.space>（latex-tools，nginx 反代到 `127.0.0.1:8765`）
-> - 直连 HTTP：<http://107.174.178.57:8765>（同一台机器，nginx 之外的应急入口）
 >
 > **给 agent 开发者**：
 > - 在线 markdown：<https://agent-playground.space/docs-agent>
