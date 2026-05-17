@@ -113,6 +113,11 @@ class Game:
 
         self._rng = random.Random(seed)
         self.created_at = time.time()
+        self.last_active: float = self.created_at
+
+    def touch(self) -> None:
+        """Mark room as recently active for idle reaper."""
+        self.last_active = time.time()
 
     # ---- joining --------------------------------------------------------
 
@@ -139,6 +144,7 @@ class Game:
                     self.owner_seat = seat
                 if all(p is not None for p in self.players):
                     self._deal()
+                self.last_active = time.time()
                 return player
         raise GameError("game is full")
 
@@ -169,6 +175,7 @@ class Game:
         self.chat.append(msg)
         if len(self.chat) > self.CHAT_HISTORY_LIMIT:
             self.chat = self.chat[-self.CHAT_HISTORY_LIMIT :]
+        self.last_active = time.time()
         return msg
 
     def chat_since(self, since_ts: float = 0.0, limit: int = 50) -> List[ChatMessage]:
@@ -227,6 +234,7 @@ class Game:
             return
         self.bid_turn = next_seat
         self.turn_started_at = time.time()
+        self.last_active = time.time()
 
     def _finalize_bidding(self) -> None:
         if self.current_bid == 0:
@@ -244,11 +252,13 @@ class Game:
         self.last_play_seat = -1
         self.last_pattern = None
         self.turn_started_at = time.time()
+        self.last_active = time.time()
 
     # ---- play -----------------------------------------------------------
 
     def play(self, token: str, card_codes: Sequence[str]) -> dict:
         self._check_turn_timeout()
+        self.last_active = time.time()
         if self.phase != Phase.PLAYING:
             raise GameError("not in playing phase")
         seat = self.seat_of(token)
@@ -345,6 +355,7 @@ class Game:
         """
         if self.disbanded:
             raise GameError("room has been disbanded")
+        self.last_active = time.time()
         if self.phase != Phase.FINISHED:
             raise GameError("current round is not finished yet")
         if any(p is None for p in self.players):

@@ -180,9 +180,14 @@ def update_profile(req: UpdateProfileReq, user: CurrentUser = Depends(require_us
     dn = (req.display_name or "").strip()
     if len(dn) > 32:
         raise HTTPException(status_code=400, detail="显示名最长 32 字符")
+    if any(c in dn for c in "<>&\"'`\n\r\t"):
+        raise HTTPException(status_code=400, detail="显示名不能包含特殊字符或换行")
     bio = (req.bio or "").strip()
     if len(bio) > 500:
         raise HTTPException(status_code=400, detail="简介最长 500 字符")
+    # strip HTML-ish chars from bio (keep newlines)
+    if any(c in bio for c in "<>"):
+        raise HTTPException(status_code=400, detail="简介不能包含 < 或 > 字符")
     db.update_profile(user.id, dn or None, bio or None)
     u = db.find_user_by_id(user.id)
     return {"ok": True, "user": _user_summary(u)}

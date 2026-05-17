@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import os
 import secrets
+import threading
+import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -45,6 +47,67 @@ app.add_middleware(
 
 
 GAMES: Dict[str, Game] = {}
+# user_id -> game_id of the single room they're currently associated with
+# (set when they create OR join; cleared when that room is disbanded/reaped)
+USER_ROOM: Dict[int, str] = {}
+_LOCK = threading.Lock()
+
+# Idle reaper: kill rooms that haven't seen any activity for this many seconds.
+# WAITING (nobody joined / fewer than 3 seated) rooms are reaped sooner.
+IDLE_TIMEOUT_S = int(os.environ.get("AAP_IDLE_TIMEOUT_S", "1800"))   # 30 min
+IDLE_TIMEOUT_WAITING_S = int(os.environ.get("AAP_IDLE_TIMEOUT_WAITING_S", "600"))  # 10 min
+IDLE_TIMEOUT_FINISHED_S = int(os.environ.get("AAP_IDLE_TIMEOUT_FINISHED_S", "900"))  # 15 min after finish
+
+
+def _release_user_room(game_id: str) -> None:
+    """Clear USER_ROOM entries that point to a given game_id."""
+    for uid, gid in list(USER_ROOM.items()):
+        if gid == game_id:
+            USER_ROOM.pop(uid, None)
+
+
+def _reap_idle_rooms() -> None:
+    now = time.time()
+    to_remove: list[str] = []
+    for gid, g in list(GAMES.items()):
+        age = now - getattr(g, "last_active", g.created_at)
+        seated = sum(1 for p in g.players if p is not None)
+        if g.disbanded:
+            to_remove.append(gid)
+            continue
+        if g.phase.value == "finished" and age > IDLE_TIMEOUT_FINISHED_S:
+            to_remove.append(gid)
+            continue
+        if g.phase.value == "waiting" and seated < 3 and age > IDLE_TIMEOUT_WAITING_S:
+            to_remove.append(gid)
+            continue
+        if age > IDLE_TIMEOUT_S:
+            to_remove.append(gid)
+    for gid in to_remove:
+        g = GAMES.get(gid)
+        if g is None:
+            continue
+        try:
+            g.disband("idle reaper")
+        except Exception:
+            pass
+        GAMES.pop(gid, None)
+        _release_user_room(gid)
+        print(f"[REAP] room {gid} removed (idle)", flush=True)
+
+
+def _reaper_loop() -> None:
+    while True:
+        time.sleep(60)
+        try:
+            with _LOCK:
+                _reap_idle_rooms()
+        except Exception as e:
+            print(f"[REAP] error: {e}", flush=True)
+
+
+_reaper_thread = threading.Thread(target=_reaper_loop, daemon=True, name="aap-reaper")
+_reaper_thread.start()
 
 
 
@@ -140,7 +203,15 @@ def create_game(req: CreateGameReq, user: CurrentUser = Depends(require_user)) -
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    GAMES[game_id] = game
+    with _LOCK:
+        existing = USER_ROOM.get(user.id)
+        if existing and existing in GAMES:
+            raise HTTPException(
+                status_code=409,
+                detail=f"你已在房间 {existing} 中，请先离开（解散或等待结束）",
+            )
+        GAMES[game_id] = game
+        USER_ROOM[user.id] = game_id
     # Print spectator token to server log only (never exposed via any API).
     # Operator can read it with: grep SPECTATOR ~/logs/ai-agent-playground.log
     print(f"[SPECTATOR] game_id={game_id} spectator_token={game.spectator_token}", flush=True)
@@ -149,24 +220,38 @@ def create_game(req: CreateGameReq, user: CurrentUser = Depends(require_user)) -
 
 @app.get("/api/games")
 def list_games() -> dict:
-    return {
-        "games": [
-            {
-                "game_id": g.game_id,
-                "name": g.name,
-                "description": g.description,
-                "phase": g.phase.value,
-                "rule_mode": g.rule_mode,
-                "players": [p.name if p else None for p in g.players],
-            }
-            for g in GAMES.values()
-        ]
-    }
+    now = time.time()
+    items = []
+    for g in GAMES.values():
+        if g.disbanded:
+            continue
+        if g.phase.value == "finished":
+            continue
+        age = now - getattr(g, "last_active", g.created_at)
+        # hide rooms that have been silent for over 5 min from the public lobby
+        if age > 300:
+            continue
+        items.append({
+            "game_id": g.game_id,
+            "name": g.name,
+            "description": g.description,
+            "phase": g.phase.value,
+            "rule_mode": g.rule_mode,
+            "players": [p.name if p else None for p in g.players],
+        })
+    return {"games": items}
 
 
 @app.post("/api/games/{game_id}/join", response_model=JoinResp)
 def join(game_id: str, req: JoinReq, user: CurrentUser = Depends(require_user)) -> JoinResp:
     game = _get_game(game_id)
+    with _LOCK:
+        existing = USER_ROOM.get(user.id)
+        if existing and existing != game_id and existing in GAMES:
+            raise HTTPException(
+                status_code=409,
+                detail=f"你已在房间 {existing} 中，请先离开",
+            )
     # Player display name and bio now come from the user's profile, not the request.
     profile = auth_db.find_user_by_id(user.id)
     if profile is None:
@@ -180,6 +265,8 @@ def join(game_id: str, req: JoinReq, user: CurrentUser = Depends(require_user)) 
         pl = game.add_player(name, bio)
     except GameError as e:
         raise _err(e)
+    with _LOCK:
+        USER_ROOM[user.id] = game_id
     return JoinResp(player_id=pl.player_id, seat=pl.seat, token=pl.token)
 
 
@@ -256,7 +343,9 @@ def disband(game_id: str, req: DisbandReq) -> dict:
         raise HTTPException(status_code=403, detail="forbidden: only the room owner may disband")
     reason = (req.reason or "").strip() or "owner disbanded"
     game.disband(reason)
-    GAMES.pop(game_id, None)
+    with _LOCK:
+        GAMES.pop(game_id, None)
+        _release_user_room(game_id)
     return {"ok": True, "game_id": game_id, "reason": game.disbanded_reason, "by": "owner"}
 
 
