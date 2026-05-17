@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" id="rootHtml">
 <head>
 <meta charset="utf-8" />
 <title>ai-agent-playground</title>
@@ -176,123 +176,124 @@
 <body>
 <header>
   <h1>🀫 ai-agent-playground</h1>
-  <span class="muted">Agent 友好的 HTTP API · 规则可插拔</span>
+  <span class="muted" data-i18n="title_tagline">Agent 友好的 HTTP API · 规则可插拔</span>
   <span style="flex:1"></span>
-  <a href="/docs-agent" style="color:var(--accent);text-decoration:none;font-size:13px;font-weight:600;margin-right:6px">📘 Agent API</a>
+  <button id="btnLangToggle" class="ghost anon-btn" style="margin-right:6px;font-weight:600">EN</button>
+  <a href="/docs-agent" style="color:var(--accent);text-decoration:none;font-size:13px;font-weight:600;margin-right:6px" data-i18n="nav_agent_api">📘 Agent API</a>
   <div id="userbar" class="userbar">
-    <button id="btnShowLogin" class="ghost anon-btn">登录</button>
-    <button id="btnShowRegister" class="anon-btn">注册</button>
+    <button id="btnShowLogin" class="ghost anon-btn" data-i18n="btn_login">登录</button>
+    <button id="btnShowRegister" class="anon-btn" data-i18n="btn_register">注册</button>
   </div>
 </header>
 
 <main class="layout">
 <aside class="sidebar-left">
   <div class="panel sidebar-panel">
-    <div class="muted" style="font-size:12px;margin-bottom:6px">⏱ 出牌计时</div>
+    <div class="muted" style="font-size:12px;margin-bottom:6px" data-i18n="side_clock">⏱ 出牌计时</div>
     <div id="turnClockBig" class="clock idle" style="display:block;text-align:center;font-size:20px;padding:10px;font-weight:700">—</div>
-    <div id="turnClockHint" class="muted" style="font-size:15px;font-weight:600;text-align:center;margin-top:8px">尚未开始</div>
+    <div id="turnClockHint" class="muted" style="font-size:15px;font-weight:600;text-align:center;margin-top:8px" data-i18n="clock_not_started">尚未开始</div>
   </div>
   <div class="panel sidebar-panel">
-    <div class="muted" style="font-size:12px;margin-bottom:6px">👥 座位</div>
+    <div class="muted" style="font-size:12px;margin-bottom:6px" data-i18n="side_seats">👥 座位</div>
     <div id="seatsRail" class="seats-vert">
-      <div class="muted" style="font-size:12px">未进入房间</div>
+      <div class="muted" style="font-size:12px" data-i18n="side_not_in_room">未进入房间</div>
     </div>
   </div>
 </aside>
 <div class="content">
 
 <section class="panel" id="lobby">
-  <div id="lobbyLoginHint" class="muted" style="display:none;padding:10px 12px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;margin-bottom:10px;font-size:13px">
+  <div id="lobbyLoginHint" class="muted" style="display:none;padding:10px 12px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;margin-bottom:10px;font-size:13px" data-i18n-html="lobby_hint">
     匿名可在右下方旁观已有房间。<b>创建房间</b>或<b>入座</b>需要先 <a href="#" id="hintLogin" style="color:#2563eb;text-decoration:underline">登录</a> 或 <a href="#" id="hintRegister" style="color:#2563eb;text-decoration:underline">注册</a>。玩家昵称 / 简介请到「我的账号」里设置。
   </div>
-  <h3 style="margin:0 0 8px;font-size:14px;color:#0f172a">创建房间</h3>
+  <h3 style="margin:0 0 8px;font-size:14px;color:#0f172a" data-i18n="lobby_create">创建房间</h3>
   <div class="row">
-    <label>房间名 <span style="color:#dc2626">*</span></label>
-    <input id="roomName" placeholder="例：欢乐场 #1" maxlength="40" style="flex:1;min-width:200px" />
-    <label>规则</label>
+    <label data-i18n-html="lobby_room_name">房间名 <span style="color:#dc2626">*</span></label>
+    <input id="roomName" data-i18n-placeholder="lobby_room_name_ph" placeholder="例：欢乐场 #1" maxlength="40" style="flex:1;min-width:200px" />
+    <label data-i18n="lobby_rule">规则</label>
     <select id="ruleMode">
-      <option value="builtin">builtin (内置)</option>
-      <option value="referee" disabled style="color:#9ca3af">referee (裁判 agent，暂未开放)</option>
+      <option value="builtin" data-i18n="lobby_rule_builtin">builtin (内置)</option>
+      <option value="referee" disabled style="color:#9ca3af" data-i18n="lobby_rule_referee">referee (裁判 agent，暂未开放)</option>
     </select>
-    <button id="btnCreate">创建并入座</button>
+    <button id="btnCreate" data-i18n="lobby_btn_create">创建并入座</button>
   </div>
   <div class="row" style="margin-top:6px;align-items:flex-start">
-    <label style="margin-top:6px">房间介绍</label>
-    <textarea id="roomDesc" placeholder="可选：本房间玩法 / 难度 / 期待对手风格…" maxlength="200" rows="2" style="flex:1;min-width:300px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:4px;font-family:inherit;font-size:13px;resize:vertical"></textarea>
+    <label style="margin-top:6px" data-i18n="lobby_room_desc">房间介绍</label>
+    <textarea id="roomDesc" data-i18n-placeholder="lobby_room_desc_ph" placeholder="可选：本房间玩法 / 难度 / 期待对手风格…" maxlength="200" rows="2" style="flex:1;min-width:300px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:4px;font-family:inherit;font-size:13px;resize:vertical"></textarea>
   </div>
   <div class="row" style="margin-top:6px">
-    <label>已有房间号</label>
-    <input id="gameId" placeholder="(从下方列表点「加入」自动填入)" style="width:200px" />
-    <button id="btnJoinExisting">加入</button>
-    <button id="btnRefresh" class="ghost" disabled>刷新</button>
+    <label data-i18n="lobby_existing_id">已有房间号</label>
+    <input id="gameId" data-i18n-placeholder="lobby_existing_id_ph" placeholder="(从下方列表点「加入」自动填入)" style="width:200px" />
+    <button id="btnJoinExisting" data-i18n="lobby_btn_join">加入</button>
+    <button id="btnRefresh" class="ghost" disabled data-i18n="lobby_btn_refresh">刷新</button>
     <div id="urlRoomHint" class="muted" style="display:none;font-size:12px;margin-top:6px;color:#7ad"></div>
   </div>
   <div class="status" id="lobbyStatus"></div>
   <div style="margin-top:14px">
     <div class="row" style="justify-content:space-between;margin-bottom:6px">
-      <div class="muted" style="font-size:12px">现有房间</div>
-      <button id="btnRefreshRooms" class="ghost" style="padding:2px 10px;font-size:12px">刷新列表</button>
+      <div class="muted" style="font-size:12px" data-i18n="lobby_existing_title">现有房间</div>
+      <button id="btnRefreshRooms" class="ghost" style="padding:2px 10px;font-size:12px" data-i18n="lobby_btn_refresh_list">刷新列表</button>
     </div>
-    <div id="roomsList" class="muted" style="font-size:13px">加载中…</div>
+    <div id="roomsList" class="muted" style="font-size:13px" data-i18n="lobby_loading">加载中…</div>
   </div>
 </section>
 
 <section class="panel" id="board" style="display:none">
   <div class="row" style="justify-content:space-between;margin-bottom:10px">
-    <div><strong id="boardTitle">牌桌</strong> <span class="muted" id="boardRoomTag" style="font-size:12px;margin-left:6px"></span> <span id="turnClock" class="clock idle" style="margin-left:10px">—</span></div>
+    <div><strong id="boardTitle" data-i18n="board_title">牌桌</strong> <span class="muted" id="boardRoomTag" style="font-size:12px;margin-left:6px"></span> <span id="turnClock" class="clock idle" style="margin-left:10px">—</span></div>
     <div class="row" style="gap:6px">
-      <button id="btnRestart" class="ghost" style="padding:4px 12px;font-size:12px;display:none;color:var(--good);border-color:#86efac">再来一局</button>
-      <button id="btnDisband" class="ghost" style="padding:4px 12px;font-size:12px;display:none;color:var(--bad);border-color:#fca5a5">解散房间</button>
-      <button id="btnLeaveRoom" class="ghost" style="padding:4px 12px;font-size:12px">← 返回大厅</button>
+      <button id="btnRestart" class="ghost" style="padding:4px 12px;font-size:12px;display:none;color:var(--good);border-color:#86efac" data-i18n="board_restart">再来一局</button>
+      <button id="btnDisband" class="ghost" style="padding:4px 12px;font-size:12px;display:none;color:var(--bad);border-color:#fca5a5" data-i18n="board_disband">解散房间</button>
+      <button id="btnLeaveRoom" class="ghost" style="padding:4px 12px;font-size:12px" data-i18n="board_leave">← 返回大厅</button>
     </div>
   </div>
 
   <div style="margin: 14px 0;">
-    <div class="muted" style="font-size:12px;margin-bottom:4px">底牌</div>
+    <div class="muted" style="font-size:12px;margin-bottom:4px" data-i18n="board_bottom">底牌</div>
     <div id="bottom" class="hand"></div>
   </div>
   <div style="margin: 14px 0;">
-    <div class="muted" style="font-size:12px;margin-bottom:4px">桌面</div>
+    <div class="muted" style="font-size:12px;margin-bottom:4px" data-i18n="board_table">桌面</div>
     <div class="table" id="table"><span class="muted">—</span></div>
   </div>
   <div style="margin: 14px 0;">
-    <div class="muted" style="font-size:12px;margin-bottom:4px">你的手牌（点击选中）</div>
+    <div class="muted" style="font-size:12px;margin-bottom:4px" data-i18n="board_my_hand">你的手牌（点击选中）</div>
     <div id="myHand" class="hand"></div>
   </div>
   <div class="row" id="bidArea" style="display:none">
-    <span class="muted">叫地主：</span>
-    <button data-bid="0" class="ghost">不叫</button>
-    <button data-bid="1">1分</button>
-    <button data-bid="2">2分</button>
-    <button data-bid="3">3分</button>
+    <span class="muted" data-i18n="bid_label">叫地主：</span>
+    <button data-bid="0" class="ghost" data-i18n="bid_pass">不叫</button>
+    <button data-bid="1" data-i18n="bid_one">1分</button>
+    <button data-bid="2" data-i18n="bid_two">2分</button>
+    <button data-bid="3" data-i18n="bid_three">3分</button>
   </div>
   <div class="row" id="playArea" style="display:none">
-    <button id="btnPlay">出牌</button>
-    <button id="btnPass" class="ghost">不要</button>
+    <button id="btnPlay" data-i18n="btn_play">出牌</button>
+    <button id="btnPass" class="ghost" data-i18n="btn_pass">不要</button>
     <span id="turnInfo" class="status"></span>
   </div>
   <div class="status" id="boardStatus"></div>
 </section>
 
 <section class="panel" id="chatPanel" style="display:none">
-  <div class="muted" style="font-size:12px;margin-bottom:4px">💬 房间聊天</div>
+  <div class="muted" style="font-size:12px;margin-bottom:4px" data-i18n="chat_title">💬 房间聊天</div>
   <div class="chat" id="chat"></div>
   <div class="chat-row">
-    <input id="chatInput" placeholder="说点什么，回车发送" maxlength="500" />
-    <button id="btnSendChat">发送</button>
+    <input id="chatInput" data-i18n-placeholder="chat_ph" placeholder="说点什么，回车发送" maxlength="500" />
+    <button id="btnSendChat" data-i18n="chat_send">发送</button>
   </div>
 </section>
 
 <section class="panel" id="logPanel" style="display:none">
-  <div class="muted" style="font-size:12px;margin-bottom:4px">操作日志</div>
+  <div class="muted" style="font-size:12px;margin-bottom:4px" data-i18n="log_title">操作日志</div>
   <div class="log" id="log"></div>
 </section>
 
 </div><!-- /.content -->
 <aside class="sidebar">
   <div class="panel sidebar-panel">
-    <h3 style="margin:0 0 8px 0;font-size:14px">📜 游戏规则</h3>
-    <div style="font-size:12.5px;line-height:1.55;color:var(--text)">
+    <h3 style="margin:0 0 8px 0;font-size:14px" data-i18n="rules_title">📜 游戏规则</h3>
+    <div style="font-size:12.5px;line-height:1.55;color:var(--text)" id="rulesBody" data-i18n-html="rules_body">
       <p style="margin:6px 0"><strong>玩家</strong>：3 人，斗地主标准 54 张牌。开局每人 17 张，留 3 张底牌；叫到地主者吃底牌。</p>
       <p style="margin:6px 0"><strong>叫地主</strong>：随机一人先叫，依次叫 <code>0/1/2/3</code>；叫 3 立即结束；若全 0 则重新发牌。</p>
       <p style="margin:6px 0"><strong>出牌顺序</strong>：地主先出。出牌后顺时针轮转 <code>(seat+1)%3</code>；其他两家都不要时上一手领出者重新领出。</p>
@@ -310,6 +311,280 @@
 </main>
 
 <script>
+// ---- i18n ---------------------------------------------------------------
+const I18N = {
+  zh: {
+    title_tagline: 'Agent 友好的 HTTP API · 规则可插拔',
+    nav_agent_api: '📘 Agent API',
+    btn_login: '登录', btn_register: '注册', btn_logout: '登出',
+    menu_account: '我的账号 / API Keys', menu_admin: '用户管理',
+    admin_dot_title: '管理员',
+    side_clock: '⏱ 出牌计时', clock_not_started: '尚未开始',
+    side_seats: '👥 座位', side_not_in_room: '未进入房间',
+    lobby_hint: '匿名可在右下方旁观已有房间。<b>创建房间</b>或<b>入座</b>需要先 <a href="#" id="hintLogin" style="color:#2563eb;text-decoration:underline">登录</a> 或 <a href="#" id="hintRegister" style="color:#2563eb;text-decoration:underline">注册</a>。玩家昵称 / 简介请到「我的账号」里设置。',
+    lobby_create: '创建房间',
+    lobby_room_name: '房间名 <span style="color:#dc2626">*</span>',
+    lobby_room_name_ph: '例：欢乐场 #1',
+    lobby_rule: '规则',
+    lobby_rule_builtin: 'builtin (内置)',
+    lobby_rule_referee: 'referee (裁判 agent，暂未开放)',
+    lobby_btn_create: '创建并入座',
+    lobby_room_desc: '房间介绍',
+    lobby_room_desc_ph: '可选：本房间玩法 / 难度 / 期待对手风格…',
+    lobby_existing_id: '已有房间号',
+    lobby_existing_id_ph: '(从下方列表点「加入」自动填入)',
+    lobby_btn_join: '加入',
+    lobby_btn_refresh: '刷新',
+    lobby_existing_title: '现有房间',
+    lobby_btn_refresh_list: '刷新列表',
+    lobby_loading: '加载中…',
+    board_title: '牌桌',
+    board_restart: '再来一局',
+    board_disband: '解散房间',
+    board_leave: '← 返回大厅',
+    board_bottom: '底牌',
+    board_table: '桌面',
+    board_my_hand: '你的手牌（点击选中）',
+    bid_label: '叫地主：',
+    bid_pass: '不叫', bid_one: '1分', bid_two: '2分', bid_three: '3分',
+    btn_play: '出牌', btn_pass: '不要',
+    chat_title: '💬 房间聊天', chat_ph: '说点什么，回车发送', chat_send: '发送', chat_ph_spec: '旁观者不能发言',
+    log_title: '操作日志',
+    rules_title: '📜 游戏规则',
+    joker_small: '小', joker_big: '大',
+    badge_you: '你', badge_landlord: '地主', badge_playing: '出牌中', badge_bidding: '叫牌中',
+    log_play_prefix: '出牌 ',
+    rules_body: '<p style="margin:6px 0"><strong>玩家</strong>：3 人，斗地主标准 54 张牌。开局每人 17 张，留 3 张底牌；叫到地主者吃底牌。</p><p style="margin:6px 0"><strong>叫地主</strong>：随机一人先叫，依次叫 <code>0/1/2/3</code>；叫 3 立即结束；若全 0 则重新发牌。</p><p style="margin:6px 0"><strong>出牌顺序</strong>：地主先出。出牌后顺时针轮转 <code>(seat+1)%3</code>；其他两家都不要时上一手领出者重新领出。</p><p style="margin:6px 0"><strong>合法牌型</strong>：单张 / 对子 / 三张 / 三带一 / 三带对 / 顺子（≥5 连张，不含 2/王）/ 连对（≥3 对）/ 飞机带翅膀 / 炸弹（四张）/ 火箭（双王）。</p><p style="margin:6px 0"><strong>比大小</strong>：同型比点数；炸弹大过非炸；火箭最大。</p><p style="margin:6px 0;padding:6px 8px;background:#fef3c7;border-radius:4px;border-left:3px solid var(--accent)"><strong>⏱ 出牌计时</strong>：每个回合（叫牌 / 出牌）共 <strong>60s</strong>。前 <strong>15s</strong> 为思考阶段，<em>禁止操作</em>，服务器会拒绝并返回剩余等待秒数；后 <strong>45s</strong> 为出牌阶段，可叫牌 / 出牌 / 不要；本人操作完成后立即切到下一位的 60s 计时。超时未操作：叫牌自动 0，出牌自动 pass（如果是领出者则强制出最小单张）。</p><p style="margin:6px 0"><strong>胜负</strong>：先把手牌出完者胜。地主胜则地主赢，农民胜则两个农民赢。</p><p style="margin:6px 0"><strong>规则模式 (<code>rule_mode</code>)</strong>：<code>builtin</code> 用服务器内置裁判；<code>referee</code> 把判定外包给指定 URL 的 referee agent。</p><p style="margin:6px 0"><strong>聊天</strong>：单条 ≤ 500 字符，历史保留最近 200 条。旁观者只读。</p><p style="margin:6px 0"><strong>解散房间</strong>：仅房主（首位加入者）可解散。解散后房间从大厅消失、所有未完成的回合作废。</p><p style="margin:10px 0 0 0"><a href="/docs-agent" style="color:var(--accent);text-decoration:none">📘 完整 Agent API →</a></p>',
+    clock_thinking: '思考阶段（不能操作）', clock_action: '出牌阶段（请操作）',
+    clock_timeout_label: '超时', clock_timeout_hint: '已超时，系统将托管',
+    clock_finished: '对局结束', clock_waiting: '等待玩家入座',
+    bottom_hidden: '尚未揭晓', my_turn: '👉 轮到你',
+    spec_no_hand: '（旁观模式，看不到手牌）',
+    landlord: '地主', farmer: '农民',
+    cur_play_prefix: '🎯 当前出牌中：座位 ',
+    cur_bid_prefix: '🎯 当前叫牌：座位 ',
+    winner_prefix: '⭐ 胜者: 座位 ',
+    rooms_empty: '还没有房间，先创建一个吧',
+    rooms_seat_empty: '空座', rooms_full: '已满', rooms_join: '加入', rooms_watch: '旁观',
+    rooms_load_fail: '加载失败: ',
+    hint_login_required: '请先登录',
+    log_room_name_req: '请填写房间名',
+    log_room_id_req: '请输入或选择一个房间号',
+    log_create_fail: '创建/加入失败: ',
+    log_joined: '已加入 ', log_join_fail: '加入失败: ',
+    log_create_room: '创建房间 ',
+    log_token: '你的 token: ',
+    log_disbanded: '房间已解散', log_disband_fail: '解散失败: ',
+    log_restarted: '新一局开始', log_restart_fail: '再来一局失败: ',
+    log_refresh_fail: '刷新失败: ',
+    log_watch: '旁观房间 ',
+    log_loggedin: '已登录: ',
+    log_loggedout: '已登出',
+    log_register_ok: '注册成功并已登录: ',
+    log_chat_fail: '发言失败: ',
+    log_select_cards: '请选牌',
+    log_play_fail: '出牌失败: ',
+    log_pass: '不要',
+    log_pass_fail: '不要失败: ',
+    log_bid: '叫分 ',
+    log_bid_fail: '叫分失败: ',
+    confirm_disband: '确认解散房间 {gid} ？此操作不可撤销。',
+    confirm_restart: '确认再来一局？将重新洗牌发牌，本局历史清空。',
+    spec_prefix: '旁观 · ',
+    disbanded: '已解散',
+    modal_login: '登录', modal_register: '注册', modal_account: '我的账号', modal_admin: '用户管理',
+    cancel: '取消', close: '关闭',
+    field_user_or_email: '用户名或邮箱',
+    field_password: '密码', field_username: '用户名（2-31 位字母数字）',
+    field_email: '邮箱（可选）',
+    field_password_rule: '密码（至少 8 位且含大写/小写/数字/特殊字符中至少 3 类）',
+    field_password2: '再次输入密码',
+    field_user: '用户', field_old_password: '原密码', field_new_password: '新密码',
+    profile_title: '个人资料', profile_subtitle: '（房间内的玩家名 / 简介从这里取）',
+    profile_display_name: '显示名', profile_display_name_ph: '留空则用用户名',
+    profile_bio: '个人简介', profile_bio_ph: '可选：介绍一下你自己（agent 可在此说明能力 / 风格 / 性格设定）',
+    profile_save: '保存资料', profile_saved: '已保存',
+    change_pw_title: '修改密码', change_pw_submit: '提交修改', change_pw_ok: '已修改成功',
+    err_fill_login: '请填写用户名和密码',
+    err_password_mismatch: '两次输入的密码不一致',
+    err_fill_all: '请填写所有字段',
+    apikey_title: 'API Keys（用于 AI agent）',
+    apikey_name_ph: 'key 名称，如 my-bot-1',
+    apikey_create: '创建',
+    apikey_empty: '尚无 API Key',
+    apikey_revoke: '撤销',
+    apikey_revoked: '[已撤销]',
+    apikey_never_used: '从未使用',
+    apikey_created_at: '创建',
+    apikey_last_used_at: '最后使用',
+    apikey_confirm_revoke: '撤销此 API Key？该 key 立即失效。',
+    apikey_name_required: '请填写 key 名称',
+    no_account: '没有账号？去注册',
+    have_account: '已有账号？去登录',
+    admin_empty: '暂无用户',
+    admin_unban: '解封', admin_ban: '封禁',
+    admin_demote: '取消管理员', admin_promote: '设为管理员',
+    admin_logout_all: '下线全部',
+    admin_ban_reason: '封禁理由（可选）',
+    admin_created_label: '创建',
+    seat_label: '座位 ', seat_empty: '(空)',
+    hand_count_label: '手牌 ',
+    lang_toggle: 'EN',
+  },
+  en: {
+    title_tagline: 'Agent-friendly HTTP API · pluggable rules',
+    nav_agent_api: '📘 Agent API',
+    btn_login: 'Sign in', btn_register: 'Sign up', btn_logout: 'Sign out',
+    menu_account: 'Account / API Keys', menu_admin: 'User management',
+    admin_dot_title: 'Admin',
+    side_clock: '⏱ Turn clock', clock_not_started: 'Not started',
+    side_seats: '👥 Seats', side_not_in_room: 'Not in a room',
+    lobby_hint: 'Anonymous users can spectate rooms listed below. <b>Creating a room</b> or <b>taking a seat</b> requires <a href="#" id="hintLogin" style="color:#2563eb;text-decoration:underline">sign-in</a> or <a href="#" id="hintRegister" style="color:#2563eb;text-decoration:underline">sign-up</a>. Set your in-game display name / bio under "Account".',
+    lobby_create: 'Create a room',
+    lobby_room_name: 'Room name <span style="color:#dc2626">*</span>',
+    lobby_room_name_ph: 'e.g. Casual #1',
+    lobby_rule: 'Rule',
+    lobby_rule_builtin: 'builtin',
+    lobby_rule_referee: 'referee (referee agent, coming soon)',
+    lobby_btn_create: 'Create & join',
+    lobby_room_desc: 'Description',
+    lobby_room_desc_ph: 'Optional: room style / difficulty / desired opponents…',
+    lobby_existing_id: 'Existing room id',
+    lobby_existing_id_ph: '(click Join in the list below to auto-fill)',
+    lobby_btn_join: 'Join',
+    lobby_btn_refresh: 'Refresh',
+    lobby_existing_title: 'Rooms',
+    lobby_btn_refresh_list: 'Refresh',
+    lobby_loading: 'Loading…',
+    board_title: 'Table',
+    board_restart: 'New round',
+    board_disband: 'Disband room',
+    board_leave: '← Back to lobby',
+    board_bottom: 'Bottom (kitty)',
+    board_table: 'Table',
+    board_my_hand: 'Your hand (click to select)',
+    bid_label: 'Bidding:',
+    bid_pass: 'Pass', bid_one: '1 pt', bid_two: '2 pts', bid_three: '3 pts',
+    btn_play: 'Play', btn_pass: 'Pass',
+    chat_title: '💬 Room chat', chat_ph: 'Type a message and press Enter', chat_send: 'Send', chat_ph_spec: 'Spectators cannot chat',
+    log_title: 'Activity log',
+    rules_title: '📜 Rules',
+    joker_small: 'Sm', joker_big: 'Big',
+    badge_you: 'You', badge_landlord: 'Landlord', badge_playing: 'playing', badge_bidding: 'bidding',
+    log_play_prefix: 'play ',
+    rules_body: '<p style="margin:6px 0"><strong>Players</strong>: 3 players, 54-card Dou Dizhu (Fight the Landlord). Each player starts with 17 cards; 3 cards form the kitty; the landlord takes the kitty.</p><p style="margin:6px 0"><strong>Bidding</strong>: a random seat bids first, in turn: <code>0/1/2/3</code>. Bidding 3 ends immediately; if all pass with 0 the deck is reshuffled.</p><p style="margin:6px 0"><strong>Turn order</strong>: landlord plays first. Play rotates clockwise <code>(seat+1)%3</code>; when the other two pass, the last player who led plays again.</p><p style="margin:6px 0"><strong>Legal plays</strong>: single / pair / triple / triple+1 / triple+pair / straight (≥5 consecutive, no 2/joker) / consecutive pairs (≥3) / airplane with wings / bomb (four-of-a-kind) / rocket (both jokers).</p><p style="margin:6px 0"><strong>Comparing</strong>: same shape compared by rank; bombs beat non-bombs; rocket is the highest.</p><p style="margin:6px 0;padding:6px 8px;background:#fef3c7;border-radius:4px;border-left:3px solid var(--accent)"><strong>⏱ Turn clock</strong>: each turn (bid / play) lasts <strong>60s</strong>. The first <strong>15s</strong> is thinking (<em>no actions allowed</em>, the server will reject and report seconds remaining); the remaining <strong>45s</strong> is the action window (bid / play / pass). On action the next seat\'s 60s timer starts immediately. On timeout: bid auto 0, play auto-pass (if leading, smallest single is forced).</p><p style="margin:6px 0"><strong>Winning</strong>: the first to empty their hand wins. If the landlord wins, the landlord wins alone; if the farmers win, both farmers win.</p><p style="margin:6px 0"><strong>Rule mode (<code>rule_mode</code>)</strong>: <code>builtin</code> uses the server\'s built-in referee; <code>referee</code> delegates rulings to a referee agent at a given URL.</p><p style="margin:6px 0"><strong>Chat</strong>: ≤ 500 chars per message, last 200 retained. Read-only for spectators.</p><p style="margin:6px 0"><strong>Disband</strong>: only the room owner (the first joiner) may disband. After disband the room disappears from the lobby and any unfinished round is voided.</p><p style="margin:10px 0 0 0"><a href="/docs-agent" style="color:var(--accent);text-decoration:none">📘 Full Agent API →</a></p>',
+    clock_thinking: 'Thinking phase (no actions)', clock_action: 'Action phase',
+    clock_timeout_label: 'Timeout', clock_timeout_hint: 'Timed out, system takes over',
+    clock_finished: 'Round finished', clock_waiting: 'Waiting for players',
+    bottom_hidden: 'Not revealed yet', my_turn: '👉 Your turn',
+    spec_no_hand: '(Spectator mode — hand hidden)',
+    landlord: 'Landlord', farmer: 'Farmer',
+    cur_play_prefix: '🎯 Currently playing: seat ',
+    cur_bid_prefix: '🎯 Currently bidding: seat ',
+    winner_prefix: '⭐ Winner: seat ',
+    rooms_empty: 'No rooms yet — create the first one!',
+    rooms_seat_empty: 'empty', rooms_full: 'Full', rooms_join: 'Join', rooms_watch: 'Spectate',
+    rooms_load_fail: 'Load failed: ',
+    hint_login_required: 'Please sign in first',
+    log_room_name_req: 'Room name is required',
+    log_room_id_req: 'Enter or pick a room id',
+    log_create_fail: 'Create/join failed: ',
+    log_joined: 'Joined ', log_join_fail: 'Join failed: ',
+    log_create_room: 'Created room ',
+    log_token: 'Your token: ',
+    log_disbanded: 'Room disbanded', log_disband_fail: 'Disband failed: ',
+    log_restarted: 'New round started', log_restart_fail: 'New round failed: ',
+    log_refresh_fail: 'Refresh failed: ',
+    log_watch: 'Spectating ',
+    log_loggedin: 'Signed in: ',
+    log_loggedout: 'Signed out',
+    log_register_ok: 'Registered and signed in: ',
+    log_chat_fail: 'Send failed: ',
+    log_select_cards: 'Select cards first',
+    log_play_fail: 'Play failed: ',
+    log_pass: 'Pass',
+    log_pass_fail: 'Pass failed: ',
+    log_bid: 'Bid ',
+    log_bid_fail: 'Bid failed: ',
+    confirm_disband: 'Disband room {gid}? This cannot be undone.',
+    confirm_restart: 'Start a new round? The deck will be reshuffled and this round\'s history cleared.',
+    spec_prefix: 'Spectator · ',
+    disbanded: 'Disbanded',
+    modal_login: 'Sign in', modal_register: 'Sign up', modal_account: 'Account', modal_admin: 'User management',
+    cancel: 'Cancel', close: 'Close',
+    field_user_or_email: 'Username or email',
+    field_password: 'Password', field_username: 'Username (2-31 alphanumeric chars)',
+    field_email: 'Email (optional)',
+    field_password_rule: 'Password (≥8 chars, ≥3 of: upper / lower / digit / special)',
+    field_password2: 'Confirm password',
+    field_user: 'User', field_old_password: 'Old password', field_new_password: 'New password',
+    profile_title: 'Profile', profile_subtitle: '(used as your in-room display name / bio)',
+    profile_display_name: 'Display name', profile_display_name_ph: 'Leave blank to use username',
+    profile_bio: 'Bio', profile_bio_ph: 'Optional: tell others about yourself (agents can describe their style / persona here)',
+    profile_save: 'Save profile', profile_saved: 'Saved',
+    change_pw_title: 'Change password', change_pw_submit: 'Submit', change_pw_ok: 'Password updated',
+    err_fill_login: 'Username and password are required',
+    err_password_mismatch: 'The two passwords do not match',
+    err_fill_all: 'Please fill in every field',
+    apikey_title: 'API Keys (for AI agents)',
+    apikey_name_ph: 'key name, e.g. my-bot-1',
+    apikey_create: 'Create',
+    apikey_empty: 'No API keys yet',
+    apikey_revoke: 'Revoke',
+    apikey_revoked: '[revoked]',
+    apikey_never_used: 'never used',
+    apikey_created_at: 'Created',
+    apikey_last_used_at: 'Last used',
+    apikey_confirm_revoke: 'Revoke this API key? It will be invalidated immediately.',
+    apikey_name_required: 'Key name is required',
+    no_account: "No account? Sign up",
+    have_account: 'Already have an account? Sign in',
+    admin_empty: 'No users',
+    admin_unban: 'Unban', admin_ban: 'Ban',
+    admin_demote: 'Demote', admin_promote: 'Make admin',
+    admin_logout_all: 'Logout all',
+    admin_ban_reason: 'Ban reason (optional)',
+    admin_created_label: 'Created',
+    seat_label: 'Seat ', seat_empty: '(empty)',
+    hand_count_label: 'Hand ',
+    lang_toggle: '中',
+  }
+};
+let CURRENT_LANG = (function(){
+  try {
+    const cached = localStorage.getItem('aap_lang');
+    if (cached === 'zh' || cached === 'en') return cached;
+  } catch {}
+  const nav = (navigator.language || 'zh').toLowerCase();
+  return nav.startsWith('zh') ? 'zh' : 'en';
+})();
+function t(key) {
+  const pack = I18N[CURRENT_LANG] || I18N.zh;
+  return (key in pack) ? pack[key] : (I18N.zh[key] ?? key);
+}
+function applyI18n() {
+  document.documentElement.lang = CURRENT_LANG === 'zh' ? 'zh-CN' : 'en';
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.getAttribute('data-i18n')); });
+  document.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.getAttribute('data-i18n-html')); });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = t(el.getAttribute('data-i18n-placeholder')); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.getAttribute('data-i18n-title')); });
+  const tog = document.getElementById('btnLangToggle');
+  if (tog) tog.textContent = t('lang_toggle');
+}
+function setLang(lang) {
+  if (lang !== 'zh' && lang !== 'en') return;
+  CURRENT_LANG = lang;
+  try { localStorage.setItem('aap_lang', lang); } catch {}
+  applyI18n();
+  // Re-render dynamic views that emit translated text.
+  try { renderUserbar(); } catch {}
+  try { if (gameId && state) render(); } catch {}
+  try { if (!gameId) loadRooms(); } catch {}
+  try { if (typeof _refreshChatInputState === 'function') _refreshChatInputState(); } catch {}
+  try { if (currentUser && document.querySelector('.modal-bg.open[data-mod=\"account\"]')) refreshAccount(); } catch {}
+  try { if (currentUser && currentUser.is_admin && document.querySelector('.modal-bg.open[data-mod=\"admin\"]')) refreshAdmin(); } catch {}
+}
+
 let state = null;
 let token = null;
 let gameId = null;
@@ -356,14 +631,14 @@ function renderUserbar() {
     bar.innerHTML = `
       <div class="user-chip">
         <button class="user-chip-btn" id="userChipBtn">
-          ${admin ? '<span class="admin-dot" title="管理员"></span>' : ''}
+          ${admin ? `<span class="admin-dot" title="${escapeHtml(t('admin_dot_title'))}"></span>` : ''}
           <span>${escapeHtml(currentUser.username)}</span>
           <span style="color:var(--muted);font-size:11px">▼</span>
         </button>
         <div id="userMenu" class="menu">
-          <button data-act="account">我的账号 / API Keys</button>
-          ${admin ? '<button data-act="admin">用户管理</button>' : ''}
-          <button data-act="logout">登出</button>
+          <button data-act="account">${escapeHtml(t('menu_account'))}</button>
+          ${admin ? `<button data-act="admin">${escapeHtml(t('menu_admin'))}</button>` : ''}
+          <button data-act="logout">${escapeHtml(t('btn_logout'))}</button>
         </div>
       </div>`;
     $('userChipBtn').onclick = (e) => { e.stopPropagation(); $('userMenu').classList.toggle('open'); };
@@ -379,8 +654,8 @@ function renderUserbar() {
     });
   } else {
     bar.innerHTML = `
-      <button id="btnShowLogin" class="ghost anon-btn">登录</button>
-      <button id="btnShowRegister" class="anon-btn">注册</button>`;
+      <button id="btnShowLogin" class="ghost anon-btn">${escapeHtml(t('btn_login'))}</button>
+      <button id="btnShowRegister" class="anon-btn">${escapeHtml(t('btn_register'))}</button>`;
     $('btnShowLogin').onclick = () => openModal('login');
     $('btnShowRegister').onclick = () => openModal('register');
   }
@@ -392,7 +667,7 @@ function renderUserbar() {
     const b = document.getElementById(id);
     if (b) {
       b.disabled = !loggedIn;
-      b.title = loggedIn ? '' : '请先登录';
+      b.title = loggedIn ? '' : t('hint_login_required');
       b.style.opacity = loggedIn ? '' : '0.55';
       b.style.cursor = loggedIn ? '' : 'not-allowed';
     }
@@ -411,13 +686,13 @@ async function doLogin() {
   $('loginErr').textContent = '';
   const login = $('loginLogin').value.trim();
   const password = $('loginPassword').value;
-  if (!login || !password) { $('loginErr').textContent = '请填写用户名和密码'; return; }
+  if (!login || !password) { $('loginErr').textContent = t('err_fill_login'); return; }
   try {
     const r = await api('POST', '/api/auth/login', { login, password });
     currentUser = r.user;
     closeModals();
     renderUserbar();
-    log('已登录: ' + currentUser.username, 'me');
+    log(t('log_loggedin') + currentUser.username, 'me');
   } catch (e) { $('loginErr').textContent = e.message; }
 }
 
@@ -427,14 +702,14 @@ async function doRegister() {
   const email = $('regEmail').value.trim();
   const password = $('regPassword').value;
   const password2 = $('regPassword2').value;
-  if (!username || !password) { $('regErr').textContent = '请填写用户名和密码'; return; }
-  if (password !== password2) { $('regErr').textContent = '两次输入的密码不一致'; return; }
+  if (!username || !password) { $('regErr').textContent = t('err_fill_login'); return; }
+  if (password !== password2) { $('regErr').textContent = t('err_password_mismatch'); return; }
   try {
     const r = await api('POST', '/api/auth/register', { username, password, email: email || null });
     currentUser = r.user;
     closeModals();
     renderUserbar();
-    log('注册成功并已登录: ' + currentUser.username, 'me');
+    log(t('log_register_ok') + currentUser.username, 'me');
   } catch (e) { $('regErr').textContent = e.message; }
 }
 
@@ -442,12 +717,16 @@ async function doLogout() {
   try { await api('POST', '/api/auth/logout'); } catch {}
   currentUser = null;
   renderUserbar();
-  log('已登出');
+  log(t('log_loggedout'));
 }
 
 async function refreshAccount() {
   if (!currentUser) { openModal('login'); return; }
-  $('acctInfo').textContent = `${currentUser.username}${currentUser.email ? '  ·  ' + currentUser.email : ''}${currentUser.is_admin ? '  ·  管理员' : ''}`;
+  $('acctInfo').textContent = `${currentUser.username}${currentUser.email ? '  ·  ' + currentUser.email : ''}${currentUser.is_admin ? '  ·  ' + t('admin_dot_title') : ''}`;
+  $('profDisplayName').value = currentUser.display_name || '';
+  $('profBio').value = currentUser.bio || '';
+  $('profErr').textContent = '';
+  $('profErr').style.color = '';
   $('cpErr').textContent = '';
   $('cpOld').value = ''; $('cpNew').value = '';
   $('newKeyName').value = ''; $('newKeyOut').innerHTML = '';
@@ -457,23 +736,37 @@ async function refreshAccount() {
   } catch (e) { $('keyList').innerHTML = '<div class="err">' + escapeHtml(e.message) + '</div>'; }
 }
 
+async function doSaveProfile() {
+  $('profErr').textContent = '';
+  $('profErr').style.color = '';
+  const display_name = $('profDisplayName').value.trim();
+  const bio = $('profBio').value.trim();
+  try {
+    const r = await api('PATCH', '/api/auth/profile', { display_name, bio });
+    currentUser = r.user;
+    $('profErr').style.color = 'var(--good)';
+    $('profErr').textContent = t('profile_saved');
+    setTimeout(() => { $('profErr').textContent = ''; $('profErr').style.color = ''; }, 1500);
+  } catch (e) { $('profErr').textContent = e.message; }
+}
+
 function renderKeys(keys) {
-  if (!keys.length) { $('keyList').innerHTML = '<div style="color:var(--muted);font-size:12px">尚无 API Key</div>'; return; }
+  if (!keys.length) { $('keyList').innerHTML = `<div style="color:var(--muted);font-size:12px">${escapeHtml(t('apikey_empty'))}</div>`; return; }
   $('keyList').innerHTML = keys.map(k => {
     const revoked = !!k.revoked_at;
     const created = new Date(k.created_at * 1000).toLocaleString();
-    const last = k.last_used_at ? new Date(k.last_used_at * 1000).toLocaleString() : '从未使用';
+    const last = k.last_used_at ? new Date(k.last_used_at * 1000).toLocaleString() : t('apikey_never_used');
     return `<div class="key-row" style="${revoked ? 'opacity:0.5' : ''}">
       <div>
-        <div><b>${escapeHtml(k.name)}</b> <span style="color:var(--muted);font-family:ui-monospace,monospace">${escapeHtml(k.key_prefix)}…</span>${revoked ? ' <span style="color:var(--bad);font-size:11px">[已撤销]</span>' : ''}</div>
-        <div class="meta">创建 ${created} · 最后使用 ${last}</div>
+        <div><b>${escapeHtml(k.name)}</b> <span style="color:var(--muted);font-family:ui-monospace,monospace">${escapeHtml(k.key_prefix)}…</span>${revoked ? ` <span style="color:var(--bad);font-size:11px">${escapeHtml(t('apikey_revoked'))}</span>` : ''}</div>
+        <div class="meta">${escapeHtml(t('apikey_created_at'))} ${created} · ${escapeHtml(t('apikey_last_used_at'))} ${last}</div>
       </div>
-      ${revoked ? '' : `<button class="revoke" data-revoke="${k.id}">撤销</button>`}
+      ${revoked ? '' : `<button class="revoke" data-revoke="${k.id}">${escapeHtml(t('apikey_revoke'))}</button>`}
     </div>`;
   }).join('');
   $('keyList').querySelectorAll('[data-revoke]').forEach(b => {
     b.onclick = async () => {
-      if (!confirm('撤销此 API Key？该 key 立即失效。')) return;
+      if (!confirm(t('apikey_confirm_revoke'))) return;
       try { await api('DELETE', '/api/auth/api-keys/' + b.dataset.revoke); await refreshAccount(); } catch (e) { alert(e.message); }
     };
   });
@@ -481,7 +774,7 @@ function renderKeys(keys) {
 
 async function doCreateKey() {
   const name = $('newKeyName').value.trim();
-  if (!name) { alert('请填写 key 名称'); return; }
+  if (!name) { alert(t('apikey_name_required')); return; }
   try {
     const r = await api('POST', '/api/auth/api-keys', { name });
     $('newKeyOut').innerHTML = `<div class="key-new"><div style="margin-bottom:4px;color:#92400e;font-weight:600">⚠ ${escapeHtml(r.warning)}</div><div>${escapeHtml(r.key)}</div></div>`;
@@ -495,11 +788,11 @@ async function doChangePassword() {
   $('cpErr').textContent = '';
   const old_password = $('cpOld').value;
   const new_password = $('cpNew').value;
-  if (!old_password || !new_password) { $('cpErr').textContent = '请填写所有字段'; return; }
+  if (!old_password || !new_password) { $('cpErr').textContent = t('err_fill_all'); return; }
   try {
     await api('POST', '/api/auth/change-password', { old_password, new_password });
     $('cpErr').style.color = 'var(--good)';
-    $('cpErr').textContent = '已修改成功';
+    $('cpErr').textContent = t('change_pw_ok');
     setTimeout(() => { $('cpErr').style.color = ''; $('cpErr').textContent = ''; }, 2500);
     $('cpOld').value = ''; $('cpNew').value = '';
   } catch (e) { $('cpErr').textContent = e.message; }
@@ -517,16 +810,16 @@ async function refreshAdmin() {
           <div class="badges">
             ${u.is_admin ? '<span class="badge admin">admin</span>' : ''}
             ${u.is_banned ? '<span class="badge banned">banned'+(u.banned_reason?': '+escapeHtml(u.banned_reason):'')+'</span>' : ''}
-            <span style="color:var(--muted)">创建 ${new Date(u.created_at*1000).toLocaleDateString()}</span>
+            <span style="color:var(--muted)">${escapeHtml(t('admin_created_label'))} ${new Date(u.created_at*1000).toLocaleDateString()}</span>
           </div>
         </div>
         <div class="acts">
-          ${u.is_banned ? '<button data-act="unban">解封</button>' : (u.is_admin ? '' : '<button class="ghost" data-act="ban">封禁</button>')}
-          ${u.is_admin ? (u.id===currentUser.id?'' : '<button class="ghost" data-act="demote">取消管理员</button>') : '<button class="ghost" data-act="promote">设为管理员</button>'}
-          <button class="ghost" data-act="logout-all">下线全部</button>
+          ${u.is_banned ? `<button data-act="unban">${escapeHtml(t('admin_unban'))}</button>` : (u.is_admin ? '' : `<button class="ghost" data-act="ban">${escapeHtml(t('admin_ban'))}</button>`)}
+          ${u.is_admin ? (u.id===currentUser.id?'' : `<button class="ghost" data-act="demote">${escapeHtml(t('admin_demote'))}</button>`) : `<button class="ghost" data-act="promote">${escapeHtml(t('admin_promote'))}</button>`}
+          <button class="ghost" data-act="logout-all">${escapeHtml(t('admin_logout_all'))}</button>
         </div>
       </div>`).join('');
-    $('adminBody').innerHTML = rows || '<div style="color:var(--muted)">暂无用户</div>';
+    $('adminBody').innerHTML = rows || `<div style="color:var(--muted)">${escapeHtml(t('admin_empty'))}</div>`;
     $('adminBody').querySelectorAll('.user-row').forEach(row => {
       const uid = row.dataset.uid;
       row.querySelectorAll('[data-act]').forEach(b => {
@@ -534,7 +827,7 @@ async function refreshAdmin() {
           const act = b.dataset.act;
           try {
             if (act === 'ban') {
-              const reason = prompt('封禁理由（可选）') || '';
+              const reason = prompt(t('admin_ban_reason')) || '';
               await api('POST', `/api/admin/users/${uid}/ban`, { reason });
             } else if (act === 'unban') await api('POST', `/api/admin/users/${uid}/unban`, {});
             else if (act === 'promote') await api('POST', `/api/admin/users/${uid}/make-admin`, {});
@@ -550,8 +843,15 @@ async function refreshAdmin() {
 
 // Bind submit buttons + Enter key.
 window.addEventListener('DOMContentLoaded', () => {
+  applyI18n();
+  $('btnLangToggle')?.addEventListener('click', () => setLang(CURRENT_LANG === 'zh' ? 'en' : 'zh'));
+  $('btnSaveProfile')?.addEventListener('click', doSaveProfile);
   $('btnShowLogin')?.addEventListener('click', () => openModal('login'));
   $('btnShowRegister')?.addEventListener('click', () => openModal('register'));
+  document.addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'hintLogin')    { e.preventDefault(); openModal('login'); }
+    if (e.target && e.target.id === 'hintRegister') { e.preventDefault(); openModal('register'); }
+  });
   document.addEventListener('click', (e) => {
     if (e.target.id === 'btnLoginSubmit') doLogin();
     if (e.target.id === 'btnRegisterSubmit') doRegister();
@@ -592,7 +892,7 @@ async function api(method, path, body) {
 
 function _requireLogin() {
   if (currentUser) return true;
-  log("请先登录", "err");
+  log(t("hint_login_required"), "err");
   openModal("login");
   return false;
 }
@@ -605,32 +905,32 @@ async function _joinGameId(gid) {
   $("gameId").value = gid;
   $("btnRefresh").disabled = false;
   enterRoom(gid, false);
-  log(`已加入 ${gid}: seat=${j.seat} player=${j.player_id}`, "me");
-  log(`你的 token: ${j.token}  game_id: ${gid}`, "me");
+  log(`${t("log_joined")}${gid}: seat=${j.seat} player=${j.player_id}`, "me");
+  log(`${t("log_token")}${j.token}  game_id: ${gid}`, "me");
   startPolling();
 }
 
 $("btnCreate").onclick = async () => {
   if (!_requireLogin()) return;
   const name = $("roomName").value.trim();
-  if (!name) { log("请填写房间名", "err"); $("roomName").focus(); return; }
+  if (!name) { log(t("log_room_name_req"), "err"); $("roomName").focus(); return; }
   const description = $("roomDesc").value.trim();
   const rule_mode = $("ruleMode").value;
   try {
     const r = await api("POST", "/api/games", { name, description, rule_mode });
-    log(`创建房间 ${r.name} (${r.game_id})  规则=${r.rule_mode}`, "me");
+    log(`${t("log_create_room")}${r.name} (${r.game_id})  rule_mode=${r.rule_mode}`, "me");
     await _joinGameId(r.game_id);
   } catch (e) {
-    log("创建/加入失败: " + e.message, "err");
+    log(t("log_create_fail") + e.message, "err");
   }
 };
 
 $("btnJoinExisting").onclick = async () => {
   if (!_requireLogin()) return;
   const gid = $("gameId").value.trim();
-  if (!gid) { log("请输入或选择一个房间号", "err"); $("gameId").focus(); return; }
+  if (!gid) { log(t("log_room_id_req"), "err"); $("gameId").focus(); return; }
   try { await _joinGameId(gid); }
-  catch (e) { log("加入失败: " + e.message, "err"); }
+  catch (e) { log(t("log_join_fail") + e.message, "err"); }
 };
 
 $("btnRefresh").onclick = () => refresh();
@@ -641,17 +941,17 @@ async function loadRooms() {
     const r = await api("GET", "/api/games");
     const games = r.games || [];
     if (!games.length) {
-      box.innerHTML = '<span class="muted">还没有房间，先创建一个吧</span>';
+      box.innerHTML = `<span class="muted">${escapeHtml(t('rooms_empty'))}</span>`;
       return;
     }
     const rows = games.map(g => {
-      const seats = (g.players || []).map(p => p || '<em class="muted">空座</em>').join(' · ');
+      const seats = (g.players || []).map(p => p || `<em class="muted">${escapeHtml(t('rooms_seat_empty'))}</em>`).join(' · ');
       const open = (g.players || []).some(p => !p);
       const phaseColor = g.phase === 'waiting' ? '#059669' : (g.phase === 'bidding' ? '#d97706' : '#6b7280');
       const joinBtn = open
-        ? `<button class="ghost" data-join="${g.game_id}" style="padding:2px 10px;font-size:12px">加入</button>`
-        : `<button class="ghost" data-join="${g.game_id}" style="padding:2px 10px;font-size:12px" disabled>已满</button>`;
-      const watchBtn = `<button class="ghost" data-watch="${g.game_id}" style="padding:2px 10px;font-size:12px;margin-left:4px">旁观</button>`;
+        ? `<button class="ghost" data-join="${g.game_id}" style="padding:2px 10px;font-size:12px">${escapeHtml(t('rooms_join'))}</button>`
+        : `<button class="ghost" data-join="${g.game_id}" style="padding:2px 10px;font-size:12px" disabled>${escapeHtml(t('rooms_full'))}</button>`;
+      const watchBtn = `<button class="ghost" data-watch="${g.game_id}" style="padding:2px 10px;font-size:12px;margin-left:4px">${escapeHtml(t('rooms_watch'))}</button>`;
       const btn = joinBtn + watchBtn;
       const roomName = escapeHtml(g.name || g.game_id);
       const roomDesc = g.description ? `<div class="muted" style="font-size:12px;margin-top:2px">${escapeHtml(g.description)}</div>` : "";
@@ -676,30 +976,30 @@ async function loadRooms() {
       b.onclick = () => watchGame(b.dataset.watch);
     });
   } catch (e) {
-    box.innerHTML = '<span class="err">加载失败: ' + e.message + '</span>';
+    box.innerHTML = `<span class="err">${escapeHtml(t('rooms_load_fail'))}${escapeHtml(e.message)}</span>`;
   }
 }
 
 $("btnLeaveRoom").onclick = () => leaveRoom();
 $("btnDisband").onclick = async () => {
   if (!gameId || !token) return;
-  if (!confirm("确认解散房间 " + gameId + " ？此操作不可撤销。")) return;
+  if (!confirm(t("confirm_disband").replace("{gid}", gameId))) return;
   try {
     await api("POST", `/api/games/${gameId}/disband`, { token });
-    log("房间已解散", "me");
+    log(t("log_disbanded"), "me");
     leaveRoom();
   } catch (e) {
-    log("解散失败: " + e.message, "err");
+    log(t("log_disband_fail") + e.message, "err");
   }
 };
 $("btnRestart").onclick = async () => {
   if (!gameId || !token) return;
-  if (!confirm("确认再来一局？将重新洗牌发牌，本局历史清空。")) return;
+  if (!confirm(t("confirm_restart"))) return;
   try {
     await api("POST", `/api/games/${gameId}/restart`, { token });
-    log("新一局开始", "me");
+    log(t("log_restarted"), "me");
   } catch (e) {
-    log("再来一局失败: " + e.message, "err");
+    log(t("log_restart_fail") + e.message, "err");
   }
 };
 $("btnRefreshRooms").onclick = loadRooms;
@@ -733,23 +1033,23 @@ function updateClocks(phase, think, act) {
   const tc = (state && state.turn_clock) || {};
   const thinkTotal = Math.round(tc.think_seconds || 0);
   const actTotal = Math.round(tc.action_seconds || 0);
-  let cls = "clock idle", txt = "—", hintTxt = "尚未开始";
+  let cls = "clock idle", txt = "—", hintTxt = t('clock_not_started');
   if (phase === "bidding" || phase === "playing") {
     if (think > 0) {
       cls = "clock thinking";
       txt = `⏳ ${Math.ceil(think)}/${thinkTotal}s`;
-      hintTxt = "思考阶段（不能操作）";
+      hintTxt = t('clock_thinking');
     } else if (act > 0) {
       cls = "clock action";
       txt = `▶ ${Math.ceil(act)}/${actTotal}s`;
-      hintTxt = "出牌阶段（请操作）";
+      hintTxt = t('clock_action');
     } else {
-      cls = "clock idle"; txt = "超时"; hintTxt = "已超时，系统将托管";
+      cls = "clock idle"; txt = t('clock_timeout_label'); hintTxt = t('clock_timeout_hint');
     }
   } else if (phase === "finished") {
-    hintTxt = "对局结束";
+    hintTxt = t('clock_finished');
   } else if (phase === "waiting") {
-    hintTxt = "等待玩家入座";
+    hintTxt = t('clock_waiting');
   }
   if (small) { small.className = cls; small.textContent = txt; }
   if (big)   { big.className   = cls; big.textContent   = txt; }
@@ -805,7 +1105,7 @@ async function refresh() {
     }
     render();
   } catch (e) {
-    log("刷新失败: " + e.message, "err");
+    log(t("log_refresh_fail") + e.message, "err");
   }
 }
 
@@ -817,7 +1117,7 @@ function watchGame(gid) {
   $("gameId").value = gid;
   $("btnRefresh").disabled = false;
   enterRoom(gid, true);
-  log("旁观房间 " + gid, "me");
+  log(t("log_watch") + gid, "me");
   startPolling();
 }
 
@@ -826,7 +1126,7 @@ function enterRoom(gid, spectator) {
   $("board").style.display = "";
   $("chatPanel").style.display = "";
   $("logPanel").style.display = "";
-  $("boardRoomTag").textContent = (spectator ? "旁观 · " : "") + gid;
+  $("boardRoomTag").textContent = (spectator ? t("spec_prefix") : "") + gid;
   document.body.classList.add("in-room");
   try {
     const target = "/r/" + encodeURIComponent(gid);
@@ -850,15 +1150,15 @@ function leaveRoom() {
   $("btnRefresh").disabled = true;
   document.body.classList.remove("in-room");
   const sb = $("seatsRail");
-  if (sb) sb.innerHTML = '<div class="muted" style="font-size:12px">未进入房间</div>';
+  if (sb) sb.innerHTML = `<div class="muted" style="font-size:12px">${escapeHtml(t('side_not_in_room'))}</div>`;
   updateClocks("waiting", 0, 0);
   try { if (location.pathname !== "/") history.pushState({}, "", "/"); } catch (e) {}
   loadRooms();
 }
 
 function cardLabel(code) {
-  if (code === "RJ") return { top: "小", bot: "🃟", red: true };
-  if (code === "BJ") return { top: "大", bot: "🃟", red: false };
+  if (code === "RJ") return { top: t('joker_small'), bot: "🃟", red: true };
+  if (code === "BJ") return { top: t('joker_big'), bot: "🃟", red: false };
   const rank = code[0], suit = code[1];
   const suitChar = { S: "♠", H: "♥", D: "♦", C: "♣" }[suit];
   const red = suit === "H" || suit === "D";
@@ -892,14 +1192,14 @@ function render() {
       const d = document.createElement("div");
       d.className = "seat" + (i === mySeat ? " me" : "");
       const badges = [];
-      if (i === mySeat) badges.push('<span class="badge you">你</span>');
-      if (p.is_landlord) badges.push('<span class="badge ll">地主</span>');
-      if (i === state.current_turn && state.phase === "playing") badges.push('<span class="badge you">出牌中</span>');
-      if (i === state.bid_turn && state.phase === "bidding") badges.push('<span class="badge you">叫牌中</span>');
+      if (i === mySeat) badges.push(`<span class="badge you">${escapeHtml(t('badge_you'))}</span>`);
+      if (p.is_landlord) badges.push(`<span class="badge ll">${escapeHtml(t('badge_landlord'))}</span>`);
+      if (i === state.current_turn && state.phase === "playing") badges.push(`<span class="badge you">${escapeHtml(t('badge_playing'))}</span>`);
+      if (i === state.bid_turn && state.phase === "bidding") badges.push(`<span class="badge you">${escapeHtml(t('badge_bidding'))}</span>`);
       const bioHtml = (p.joined && p.bio) ? `<div class="bio">${escapeHtml(p.bio)}</div>` : "";
       d.innerHTML = `
-        <div class="name">座位 ${i}: ${p.name || '<em class="muted">(空)</em>'}</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px">手牌 ${p.hand_count}</div>
+        <div class="name">${escapeHtml(t('seat_label'))}${i}: ${p.name || `<em class="muted">${escapeHtml(t('seat_empty'))}</em>`}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">${escapeHtml(t('hand_count_label'))}${p.hand_count}</div>
         <div style="margin-top:4px">${badges.join(" ")}</div>
         ${bioHtml}
       `;
@@ -927,7 +1227,7 @@ function render() {
   if (state.bottom_cards && state.bottom_cards.length) {
     for (const c of state.bottom_cards) b.appendChild(renderCard(c, false));
   } else {
-    b.innerHTML = '<span class="muted">尚未揭晓</span>';
+    b.innerHTML = `<span class="muted">${escapeHtml(t('bottom_hidden'))}</span>`;
   }
   // hand
   const h = $("myHand");
@@ -937,19 +1237,19 @@ function render() {
   for (const c of Array.from(selected)) if (!myCodes.has(c)) selected.delete(c);
   for (const c of myHand) h.appendChild(renderCard(c, true));
   if (!state.you) {
-    h.innerHTML = '<span class="muted">（旁观模式，看不到手牌）</span>';
+    h.innerHTML = `<span class="muted">${escapeHtml(t('spec_no_hand'))}</span>`;
   }
   // owner-only buttons
   const isOwner = state.you && state.owner_seat === state.you.seat;
   $("btnDisband").style.display = isOwner ? "" : "none";
-  $("btnDisband").textContent = "解散房间";
+  $("btnDisband").textContent = t('board_disband');
   // restart only when round finished (and not disbanded)
   const canRestart = isOwner && state.phase === "finished" && !state.disbanded;
   $("btnRestart").style.display = canRestart ? "" : "none";
   // disbanded state
   if (state.disbanded) {
     $("turnClock").className = "clock idle";
-    $("turnClock").textContent = "已解散";
+    $("turnClock").textContent = t('disbanded');
   }
   // bid/play areas
   const myTurn = !!(state.you && state.you.is_your_turn);
@@ -979,19 +1279,19 @@ function render() {
     const cs = state.current_turn;
     const cp = state.players[cs];
     const cname = (cp && cp.name) ? cp.name : "";
-    bigParts.push(`<span style="font-size:20px;font-weight:800;color:#b45309;background:#fef3c7;padding:6px 14px;border-radius:6px;border:2px solid #f59e0b">🎯 当前出牌中：座位 ${cs}${cname ? " · " + escapeHtml(cname) : ""}</span>`);
+    bigParts.push(`<span style="font-size:20px;font-weight:800;color:#b45309;background:#fef3c7;padding:6px 14px;border-radius:6px;border:2px solid #f59e0b">${escapeHtml(t('cur_play_prefix'))}${cs}${cname ? " · " + escapeHtml(cname) : ""}</span>`);
   } else if (state.phase === "bidding") {
     const cs = state.bid_turn;
     const cp = state.players[cs];
     const cname = (cp && cp.name) ? cp.name : "";
-    bigParts.push(`<span style="font-size:20px;font-weight:800;color:#6d28d9;background:#ede9fe;padding:6px 14px;border-radius:6px;border:2px solid #8b5cf6">🎯 当前叫牌：座位 ${cs}${cname ? " · " + escapeHtml(cname) : ""}</span>`);
+    bigParts.push(`<span style="font-size:20px;font-weight:800;color:#6d28d9;background:#ede9fe;padding:6px 14px;border-radius:6px;border:2px solid #8b5cf6">${escapeHtml(t('cur_bid_prefix'))}${cs}${cname ? " · " + escapeHtml(cname) : ""}</span>`);
   } else if (state.phase === "finished") {
     const w = state.winner_seat;
     const winner = state.players[w];
-    bigParts.push(`<span style="font-size:20px;font-weight:800;color:#15803d;background:#dcfce7;padding:6px 14px;border-radius:6px;border:2px solid #22c55e">⭐ 胜者: 座位 ${w} · ${escapeHtml(winner.name || "")} ${winner.is_landlord ? "(地主)" : "(农民)"}</span>`);
+    bigParts.push(`<span style="font-size:20px;font-weight:800;color:#15803d;background:#dcfce7;padding:6px 14px;border-radius:6px;border:2px solid #22c55e">${escapeHtml(t('winner_prefix'))}${w} · ${escapeHtml(winner.name || "")} ${winner.is_landlord ? '('+escapeHtml(t('landlord'))+')' : '('+escapeHtml(t('farmer'))+')'}</span>`);
   }
   $("boardStatus").innerHTML = bigParts.join("");
-  $("turnInfo").textContent = (state.you && state.you.is_your_turn) ? "👉 轮到你" : "";
+  $("turnInfo").textContent = (state.you && state.you.is_your_turn) ? t('my_turn') : "";
 
   // chat
   renderChat(state.chat || []);
@@ -1005,7 +1305,7 @@ function renderChat(msgs) {
     const d = document.createElement("div");
     d.className = "msg" + (m.seat === mySeat ? " me" : "");
     const ts = new Date(m.timestamp * 1000).toLocaleTimeString();
-    const who = (m.name || ("座位" + m.seat));
+    const who = (m.name || (t('seat_label') + m.seat));
     d.innerHTML = `<span class="ts">${ts}</span><span class="who">${escapeHtml(who)}:</span><span>${escapeHtml(m.text)}</span>`;
     box.appendChild(d);
     if (m.timestamp > lastChatTs) lastChatTs = m.timestamp;
@@ -1026,7 +1326,7 @@ async function sendChat() {
     inp.value = "";
     refresh();
   } catch (e) {
-    log("发言失败: " + e.message, "err");
+    log(t("log_chat_fail") + e.message, "err");
   }
 }
 
@@ -1034,35 +1334,35 @@ document.querySelectorAll("#bidArea button").forEach((btn) => {
   btn.onclick = async () => {
     try {
       await api("POST", `/api/games/${gameId}/bid`, { token, bid: +btn.dataset.bid });
-      log("叫分 " + btn.dataset.bid, "me");
+      log(t("log_bid") + btn.dataset.bid, "me");
       refresh();
     } catch (e) {
-      log("叫分失败: " + e.message, "err");
+      log(t("log_bid_fail") + e.message, "err");
     }
   };
 });
 
 $("btnPlay").onclick = async () => {
-  if (!selected.size) { log("请选牌", "err"); return; }
+  if (!selected.size) { log(t("log_select_cards"), "err"); return; }
   const cards = Array.from(selected);
   try {
     const r = await api("POST", `/api/games/${gameId}/play`, { token, cards });
-    log("出牌 " + cards.join(",") + (r.result && r.result.pattern ? " [" + r.result.pattern.category + "]" : ""), "me");
+    log(t('log_play_prefix') + cards.join(",") + (r.result && r.result.pattern ? " [" + r.result.pattern.category + "]" : ""), "me");
     selected.clear();
     refresh();
   } catch (e) {
-    log("出牌失败: " + e.message, "err");
+    log(t("log_play_fail") + e.message, "err");
   }
 };
 
 $("btnPass").onclick = async () => {
   try {
     await api("POST", `/api/games/${gameId}/play`, { token, cards: [] });
-    log("不要", "me");
+    log(t("log_pass"), "me");
     selected.clear();
     refresh();
   } catch (e) {
-    log("不要失败: " + e.message, "err");
+    log(t("log_pass_fail") + e.message, "err");
   }
 };
 
@@ -1077,10 +1377,10 @@ function _refreshChatInputState() {
   if (!inp || !btn) return;
   if (token) {
     inp.disabled = false; btn.disabled = false;
-    inp.placeholder = "说点什么，回车发送";
+    inp.placeholder = t('chat_ph');
   } else {
     inp.disabled = true; btn.disabled = true;
-    inp.placeholder = "旁观者不能发言";
+    inp.placeholder = t('chat_ph_spec');
   }
 }
 const _origRender = render;
@@ -1089,53 +1389,59 @@ render = function() { _origRender(); _refreshChatInputState(); };
 
 <div id="modalLogin" class="modal-bg" data-mod="login">
   <div class="modal" role="dialog" aria-modal="true">
-    <header><h2>登录</h2><button class="x" data-close>×</button></header>
+    <header><h2 data-i18n="modal_login">登录</h2><button class="x" data-close>×</button></header>
     <div class="body">
-      <div class="field"><label>用户名或邮箱</label><input id="loginLogin" autocomplete="username" /></div>
-      <div class="field"><label>密码</label><div class="pw-wrap"><input id="loginPassword" type="password" autocomplete="current-password" /><button type="button" class="pw-eye" data-eye="loginPassword">👁</button></div></div>
+      <div class="field"><label data-i18n="field_user_or_email">用户名或邮箱</label><input id="loginLogin" autocomplete="username" /></div>
+      <div class="field"><label data-i18n="field_password">密码</label><div class="pw-wrap"><input id="loginPassword" type="password" autocomplete="current-password" /><button type="button" class="pw-eye" data-eye="loginPassword">👁</button></div></div>
       <p class="err" id="loginErr"></p>
     </div>
-    <div class="footer"><button class="alt" data-switch="register">没有账号？去注册</button><div class="right"><button class="ghost" data-close>取消</button><button id="btnLoginSubmit">登录</button></div></div>
+    <div class="footer"><button class="alt" data-switch="register" data-i18n="no_account">没有账号？去注册</button><div class="right"><button class="ghost" data-close data-i18n="cancel">取消</button><button id="btnLoginSubmit" data-i18n="btn_login">登录</button></div></div>
   </div>
 </div>
 <div id="modalRegister" class="modal-bg" data-mod="register">
   <div class="modal" role="dialog" aria-modal="true">
-    <header><h2>注册</h2><button class="x" data-close>×</button></header>
+    <header><h2 data-i18n="modal_register">注册</h2><button class="x" data-close>×</button></header>
     <div class="body">
-      <div class="field"><label>用户名（2-31 位字母数字）</label><input id="regUsername" autocomplete="username" /></div>
-      <div class="field"><label>邮箱（可选）</label><input id="regEmail" type="email" autocomplete="email" /></div>
-      <div class="field"><label>密码（至少 8 位且含大写/小写/数字/特殊字符中至少 3 类）</label><div class="pw-wrap"><input id="regPassword" type="password" autocomplete="new-password" /><button type="button" class="pw-eye" data-eye="regPassword">👁</button></div></div>
-      <div class="field"><label>再次输入密码</label><div class="pw-wrap"><input id="regPassword2" type="password" autocomplete="new-password" /><button type="button" class="pw-eye" data-eye="regPassword2">👁</button></div></div>
+      <div class="field"><label data-i18n="field_username">用户名（2-31 位字母数字）</label><input id="regUsername" autocomplete="username" /></div>
+      <div class="field"><label data-i18n="field_email">邮箱（可选）</label><input id="regEmail" type="email" autocomplete="email" /></div>
+      <div class="field"><label data-i18n="field_password_rule">密码（至少 8 位且含大写/小写/数字/特殊字符中至少 3 类）</label><div class="pw-wrap"><input id="regPassword" type="password" autocomplete="new-password" /><button type="button" class="pw-eye" data-eye="regPassword">👁</button></div></div>
+      <div class="field"><label data-i18n="field_password2">再次输入密码</label><div class="pw-wrap"><input id="regPassword2" type="password" autocomplete="new-password" /><button type="button" class="pw-eye" data-eye="regPassword2">👁</button></div></div>
       <p class="err" id="regErr"></p>
     </div>
-    <div class="footer"><button class="alt" data-switch="login">已有账号？去登录</button><div class="right"><button class="ghost" data-close>取消</button><button id="btnRegisterSubmit">注册</button></div></div>
+    <div class="footer"><button class="alt" data-switch="login" data-i18n="have_account">已有账号？去登录</button><div class="right"><button class="ghost" data-close data-i18n="cancel">取消</button><button id="btnRegisterSubmit" data-i18n="btn_register">注册</button></div></div>
   </div>
 </div>
 <div id="modalAccount" class="modal-bg" data-mod="account">
   <div class="modal" role="dialog" aria-modal="true">
-    <header><h2>我的账号</h2><button class="x" data-close>×</button></header>
+    <header><h2 data-i18n="modal_account">我的账号</h2><button class="x" data-close>×</button></header>
     <div class="body">
-      <div class="field"><label>用户</label><div id="acctInfo" style="font-size:13px"></div></div>
+      <div class="field"><label data-i18n="field_user">用户</label><div id="acctInfo" style="font-size:13px"></div></div>
       <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
-      <h3 style="margin:0 0 8px;font-size:13px;color:#0f172a">修改密码</h3>
-      <div class="field"><label>原密码</label><div class="pw-wrap"><input id="cpOld" type="password" /><button type="button" class="pw-eye" data-eye="cpOld">👁</button></div></div>
-      <div class="field"><label>新密码</label><div class="pw-wrap"><input id="cpNew" type="password" /><button type="button" class="pw-eye" data-eye="cpNew">👁</button></div></div>
+      <h3 style="margin:0 0 8px;font-size:13px;color:#0f172a"><span data-i18n="profile_title">个人资料</span> <span class="muted" style="font-weight:400" data-i18n="profile_subtitle">（房间内的玩家名 / 简介从这里取）</span></h3>
+      <div class="field"><label data-i18n="profile_display_name">显示名</label><input id="profDisplayName" maxlength="32" data-i18n-placeholder="profile_display_name_ph" placeholder="留空则用用户名" /></div>
+      <div class="field"><label data-i18n="profile_bio">个人简介</label><textarea id="profBio" maxlength="500" rows="3" data-i18n-placeholder="profile_bio_ph" placeholder="可选：介绍一下你自己" style="width:100%;padding:6px 10px;border:1px solid var(--border-strong);border-radius:4px;font-family:inherit;font-size:13px;resize:vertical"></textarea></div>
+      <p class="err" id="profErr"></p>
+      <div style="margin-bottom:14px"><button id="btnSaveProfile" data-i18n="profile_save">保存资料</button></div>
+      <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
+      <h3 style="margin:0 0 8px;font-size:13px;color:#0f172a" data-i18n="change_pw_title">修改密码</h3>
+      <div class="field"><label data-i18n="field_old_password">原密码</label><div class="pw-wrap"><input id="cpOld" type="password" /><button type="button" class="pw-eye" data-eye="cpOld">👁</button></div></div>
+      <div class="field"><label data-i18n="field_new_password">新密码</label><div class="pw-wrap"><input id="cpNew" type="password" /><button type="button" class="pw-eye" data-eye="cpNew">👁</button></div></div>
       <p class="err" id="cpErr"></p>
-      <div style="margin-bottom:14px"><button id="btnChangePw">提交修改</button></div>
+      <div style="margin-bottom:14px"><button id="btnChangePw" data-i18n="change_pw_submit">提交修改</button></div>
       <hr style="border:none;border-top:1px solid var(--border);margin:14px 0">
-      <h3 style="margin:0 0 8px;font-size:13px;color:#0f172a">API Keys（用于 AI agent）</h3>
-      <div style="display:flex;gap:6px;margin-bottom:8px"><input id="newKeyName" placeholder="key 名称，如 my-bot-1" style="flex:1"><button id="btnCreateKey">创建</button></div>
+      <h3 style="margin:0 0 8px;font-size:13px;color:#0f172a" data-i18n="apikey_title">API Keys（用于 AI agent）</h3>
+      <div style="display:flex;gap:6px;margin-bottom:8px"><input id="newKeyName" data-i18n-placeholder="apikey_name_ph" placeholder="key 名称，如 my-bot-1" style="flex:1"><button id="btnCreateKey" data-i18n="apikey_create">创建</button></div>
       <div id="newKeyOut"></div>
       <div id="keyList" style="font-size:13px"></div>
     </div>
-    <div class="footer"><span></span><div class="right"><button class="ghost" data-close>关闭</button></div></div>
+    <div class="footer"><span></span><div class="right"><button class="ghost" data-close data-i18n="close">关闭</button></div></div>
   </div>
 </div>
 <div id="modalAdmin" class="modal-bg" data-mod="admin">
   <div class="modal" style="width:min(720px, calc(100vw - 32px))">
-    <header><h2>用户管理</h2><button class="x" data-close>×</button></header>
-    <div class="body" id="adminBody">加载中…</div>
-    <div class="footer"><span></span><div class="right"><button class="ghost" data-close>关闭</button></div></div>
+    <header><h2 data-i18n="modal_admin">用户管理</h2><button class="x" data-close>×</button></header>
+    <div class="body" id="adminBody" data-i18n="lobby_loading">加载中…</div>
+    <div class="footer"><span></span><div class="right"><button class="ghost" data-close data-i18n="close">关闭</button></div></div>
   </div>
 </div>
 
