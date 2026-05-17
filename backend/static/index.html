@@ -33,19 +33,23 @@
   main.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
   main.layout .content { min-width: 0; }
   main.layout .sidebar, main.layout .sidebar-left { position: sticky; top: 20px; }
-  /* lobby mode: hide both sidebars, single column */
-  body:not(.in-room) main.layout { grid-template-columns: 1fr; }
-  body:not(.in-room) main.layout .sidebar,
-  body:not(.in-room) main.layout .sidebar-left { display: none; }
+  /* lobby mode: show left sidebar (game picker), hide right sidebar (seats) */
+  body:not(.in-room) main.layout { grid-template-columns: 280px minmax(0, 1fr); }
+  body:not(.in-room) main.layout .sidebar { display: none; }
+  /* in-room mode: hide left sidebar (game already chosen), show right sidebar (seats) */
+  body.in-room main.layout { grid-template-columns: minmax(0, 1fr) 320px; }
+  body.in-room main.layout .sidebar-left { display: none; }
   main.layout .sidebar-panel { margin-bottom: 12px; }
   main.layout .sidebar-panel:last-child { margin-bottom: 0; }
   @media (max-width: 1180px) {
-    main.layout { grid-template-columns: 260px minmax(0, 1fr); }
-    main.layout .sidebar { display: none; }
+    body.in-room main.layout { grid-template-columns: 1fr; }
+    body.in-room main.layout .sidebar { display: none; }
   }
   @media (max-width: 860px) {
-    main.layout { grid-template-columns: 1fr; }
+    main.layout, body:not(.in-room) main.layout, body.in-room main.layout { grid-template-columns: 1fr; }
     main.layout .sidebar, main.layout .sidebar-left { position: static; display: block; }
+    body.in-room main.layout .sidebar-left { display: none; }
+    body:not(.in-room) main.layout .sidebar { display: none; }
   }
   .clock { display: inline-flex; align-items: center; gap: 6px; font-family: ui-monospace, monospace; font-size: 13px; padding: 3px 8px; border-radius: 4px; background: #f3f4f6; border: 1px solid var(--border); }
   .clock.thinking { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
