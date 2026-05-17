@@ -22,7 +22,7 @@ from fastapi import Depends
 
 from .auth import db as auth_db
 from .auth.bootstrap import bootstrap_admin
-from .auth.deps import CurrentUser, require_user
+from .auth.deps import CurrentUser, require_admin, require_user
 from .auth.routes import admin_router as auth_admin_router
 from .auth.routes import router as auth_router
 from .doudizhu.game import Game, GameError
@@ -384,6 +384,53 @@ def restart(game_id: str, req: RestartReq) -> dict:
     except GameError as e:
         raise _err(e)
     return {"ok": True, "game_id": game_id, "phase": game.phase.value}
+
+
+# ---- admin -----------------------------------------------------------------
+
+
+@app.get("/api/admin/games")
+def admin_list_games(_admin: CurrentUser = Depends(require_admin)) -> dict:
+    """Admin: list every in-memory room (including disbanded/finished)."""
+    now = time.time()
+    items = []
+    for g in GAMES.values():
+        age = now - getattr(g, "last_active", g.created_at)
+        items.append({
+            "game_id": g.game_id,
+            "name": g.name,
+            "description": g.description,
+            "phase": g.phase.value,
+            "rule_mode": g.rule_mode,
+            "players": [p.name if p else None for p in g.players],
+            "owner_seat": g.owner_seat,
+            "owner_name": (g.players[g.owner_seat].name
+                           if 0 <= g.owner_seat < 3 and g.players[g.owner_seat] else None),
+            "disbanded": g.disbanded,
+            "disbanded_reason": g.disbanded_reason,
+            "created_at": g.created_at,
+            "last_active": getattr(g, "last_active", g.created_at),
+            "idle_seconds": round(age, 1),
+        })
+    items.sort(key=lambda x: x["created_at"], reverse=True)
+    return {"games": items, "total": len(items)}
+
+
+@app.delete("/api/admin/games/{game_id}")
+def admin_delete_game(game_id: str, _admin: CurrentUser = Depends(require_admin)) -> dict:
+    """Admin: force-disband and remove a room regardless of phase/owner."""
+    with _LOCK:
+        g = GAMES.get(game_id)
+        if g is None:
+            raise HTTPException(status_code=404, detail="game not found")
+        try:
+            g.disband("admin removed")
+        except Exception:
+            pass
+        GAMES.pop(game_id, None)
+        _release_user_room(game_id)
+    print(f"[ADMIN] room {game_id} force-removed", flush=True)
+    return {"ok": True, "game_id": game_id, "removed": True}
 
 
 # ---- static frontend ------------------------------------------------------
