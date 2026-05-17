@@ -182,6 +182,27 @@
   .user-row .badge.banned { background:var(--bad); color:white; }
   .user-row .acts button { padding:3px 8px; font-size:11px; font-weight:500; }
 
+
+/* ----- zhajinhua ----- */
+.zjh-meta { display:flex; gap:8px; flex-wrap:wrap; margin:4px 0 6px; }
+.zjh-pill { background:#f5f3ff; border:1px solid #ddd6fe; padding:4px 12px; border-radius:999px; font-size:13px; color:#4c1d95; }
+.zjh-pill strong { color:#6d28d9; font-size:14px; }
+.gt-tag { font-weight:600; padding:1px 6px; border-radius:3px; display:inline-block; }
+.gt-doudizhu { background:#fef3c7; color:#92400e; }
+.gt-zhajinhua { background:#ddd6fe; color:#6d28d9; }
+.zjh-card-back { width:42px; height:60px; background:linear-gradient(135deg,#1e3a8a,#6366f1); border-radius:5px; box-shadow:0 1px 3px rgba(0,0,0,.12); display:inline-block; margin-right:4px; position:relative; }
+.zjh-card-back::after { content:""; position:absolute; inset:6px; border:1px dashed rgba(255,255,255,.4); border-radius:3px; }
+.zjh-history-row { display:flex; align-items:center; gap:8px; padding:3px 6px; font-size:13px; }
+.zjh-history-row.latest { background:rgba(255,255,255,.85); border-radius:4px; font-weight:500; }
+.zjh-history-row .who { font-weight:600; min-width:90px; color:#065f46; }
+.zjh-history-row .act-call { color:#1d4ed8; }
+.zjh-history-row .act-raise { color:#b45309; font-weight:600; }
+.zjh-history-row .act-fold, .zjh-history-row .act-timeout_fold { color:#6b7280; font-style:italic; }
+.zjh-history-row .act-compare { color:#be123c; font-weight:600; }
+.zjh-history-row .act-look { color:#6b7280; }
+.zjh-history-row .act-win { color:#15803d; font-weight:700; }
+.seat-zjh-info { font-size:12px; color:var(--muted); margin-top:2px; }
+.seat-zjh-chips { font-weight:700; color:#b45309; }
 </style>
 </head>
 <body>
@@ -220,6 +241,11 @@
   <div class="row">
     <label data-i18n-html="lobby_room_name">房间名 <span style="color:#dc2626">*</span></label>
     <input id="roomName" data-i18n-placeholder="lobby_room_name_ph" placeholder="例：欢乐场 #1" maxlength="40" style="flex:1;min-width:200px" />
+    <label data-i18n="lobby_game_type">游戏</label>
+    <select id="gameType">
+      <option value="doudizhu" data-i18n="lobby_gt_ddz">斗地主</option>
+      <option value="zhajinhua" data-i18n="lobby_gt_zjh">炸金花</option>
+    </select>
     <label data-i18n="lobby_rule">规则</label>
     <select id="ruleMode">
       <option value="builtin" data-i18n="lobby_rule_builtin">builtin (内置)</option>
@@ -285,6 +311,53 @@
   <div class="status" id="boardStatus"></div>
 </section>
 
+<section class="panel" id="zjhBoard" style="display:none">
+  <div class="row" style="justify-content:space-between;margin-bottom:10px">
+    <div>
+      <strong data-i18n="zjh_board_title">炸金花</strong>
+      <span class="muted" id="zjhBoardRoomTag" style="font-size:12px;margin-left:6px"></span>
+      <span id="zjhTurnClock" class="clock idle" style="margin-left:10px">—</span>
+    </div>
+    <div class="row" style="gap:6px">
+      <button id="btnZjhRestart" class="ghost" style="padding:4px 12px;font-size:12px;display:none;color:var(--good);border-color:#86efac" data-i18n="board_restart">再来一局</button>
+      <button id="btnZjhDisband" class="ghost" style="padding:4px 12px;font-size:12px;display:none;color:var(--bad);border-color:#fca5a5" data-i18n="board_disband">解散房间</button>
+      <button id="btnZjhLeaveRoom" class="ghost" style="padding:4px 12px;font-size:12px" data-i18n="board_leave">← 返回大厅</button>
+    </div>
+  </div>
+
+  <div class="zjh-meta">
+    <div class="zjh-pill"><span class="muted" data-i18n="zjh_round">第</span> <strong id="zjhRound">—</strong> <span class="muted" data-i18n="zjh_round_unit">局</span></div>
+    <div class="zjh-pill"><span class="muted" data-i18n="zjh_pot">底池：</span><strong id="zjhPot">0</strong></div>
+    <div class="zjh-pill"><span class="muted" data-i18n="zjh_stake">注码：</span><strong id="zjhStake">1</strong> / <span id="zjhMaxStake">20</span></div>
+    <div class="zjh-pill"><span class="muted" data-i18n="zjh_dealer">庄家：</span><strong id="zjhDealer">—</strong></div>
+  </div>
+
+  <div style="margin: 14px 0;">
+    <div class="muted" style="font-size:12px;margin-bottom:4px" data-i18n="zjh_history">本局记录</div>
+    <div class="table" id="zjhHistory"><span class="muted">—</span></div>
+  </div>
+
+  <div style="margin: 14px 0;">
+    <div class="muted" style="font-size:12px;margin-bottom:4px" data-i18n="zjh_my_hand">你的手牌</div>
+    <div id="zjhHand" class="hand"></div>
+  </div>
+
+  <div class="row" id="zjhActionArea" style="display:none;flex-wrap:wrap;gap:8px;align-items:center">
+    <button id="btnZjhLook" class="ghost" data-i18n="zjh_btn_look">看牌</button>
+    <button id="btnZjhCall" data-i18n="zjh_btn_call">跟注</button>
+    <span class="muted" style="font-size:12px" data-i18n="zjh_raise_to">加注至</span>
+    <input id="zjhRaiseInput" type="number" min="1" max="20" style="width:70px;padding:4px 6px" />
+    <button id="btnZjhRaise" data-i18n="zjh_btn_raise">加注</button>
+    <button id="btnZjhFold" class="ghost" data-i18n="zjh_btn_fold">弃牌</button>
+    <span class="muted" style="font-size:12px" data-i18n="zjh_vs">对手：</span>
+    <select id="zjhCompareTarget" style="padding:4px 8px"></select>
+    <button id="btnZjhCompare" class="ghost" data-i18n="zjh_btn_compare">比牌</button>
+    <span id="zjhTurnInfo" class="status"></span>
+  </div>
+
+  <div class="status" id="zjhBoardStatus"></div>
+</section>
+
 <section class="panel" id="chatPanel" style="display:none">
   <div class="muted" style="font-size:12px;margin-bottom:4px" data-i18n="chat_title">💬 房间聊天</div>
   <div class="chat" id="chat"></div>
@@ -338,6 +411,23 @@ const I18N = {
     lobby_rule_builtin: 'builtin (内置)',
     lobby_rule_referee: 'referee (裁判 agent，暂未开放)',
     lobby_btn_create: '创建并入座',
+    lobby_game_type: '游戏', lobby_gt_ddz: '斗地主', lobby_gt_zjh: '炸金花',
+    zjh_board_title: '🎴 炸金花',
+    zjh_round: '第', zjh_round_unit: '局',
+    zjh_pot: '底池：', zjh_stake: '注码：', zjh_dealer: '庄家：',
+    zjh_history: '本局记录', zjh_history_empty: '本局尚无动作',
+    zjh_my_hand: '你的手牌', zjh_no_hand: '尚未发牌 / 已弃牌',
+    zjh_btn_look: '看牌', zjh_btn_call: '跟注', zjh_btn_raise: '加注',
+    zjh_btn_fold: '弃牌', zjh_btn_compare: '比牌',
+    zjh_raise_to: '加注至', zjh_vs: '对手：',
+    zjh_chips_label: '筹码：', zjh_bet_label: '本局押：',
+    zjh_badge_dealer: '庄', zjh_badge_seen: '已看牌', zjh_badge_blind: '暗注', zjh_badge_fold: '已弃', zjh_badge_winner: '胜',
+    zjh_log_look: '看牌', zjh_log_call: '跟注', zjh_log_raise: '加注到',
+    zjh_log_fold: '弃牌', zjh_log_timeout_fold: '超时弃牌', zjh_log_compare: '比牌 vs', zjh_log_win: '赢得底池',
+    zjh_waiting: '等待开局…',
+    zjh_confirm_fold: '确认弃牌？', zjh_confirm_compare: '确认比牌？输的一方将弃牌。',
+    zjh_invalid_raise: '请输入有效加注金额',
+    badge_owner: '房主',
     lobby_room_desc: '房间介绍',
     lobby_room_desc_ph: '可选：本房间玩法 / 难度 / 期待对手风格…',
     lobby_existing_id: '已有房间号',
@@ -461,6 +551,23 @@ const I18N = {
     lobby_rule_builtin: 'builtin',
     lobby_rule_referee: 'referee (referee agent, coming soon)',
     lobby_btn_create: 'Create & join',
+    lobby_game_type: 'Game', lobby_gt_ddz: 'Dou Dizhu', lobby_gt_zjh: 'Zhajinhua',
+    zjh_board_title: '🎴 Zhajinhua (3-card Brag)',
+    zjh_round: 'Round', zjh_round_unit: '',
+    zjh_pot: 'Pot: ', zjh_stake: 'Stake: ', zjh_dealer: 'Dealer: ',
+    zjh_history: 'Round history', zjh_history_empty: 'No actions yet',
+    zjh_my_hand: 'Your hand', zjh_no_hand: 'No hand (folded / not dealt)',
+    zjh_btn_look: 'Look', zjh_btn_call: 'Call', zjh_btn_raise: 'Raise',
+    zjh_btn_fold: 'Fold', zjh_btn_compare: 'Compare',
+    zjh_raise_to: 'Raise to', zjh_vs: 'vs',
+    zjh_chips_label: 'Chips: ', zjh_bet_label: 'Bet: ',
+    zjh_badge_dealer: 'D', zjh_badge_seen: 'Seen', zjh_badge_blind: 'Blind', zjh_badge_fold: 'Folded', zjh_badge_winner: 'Win',
+    zjh_log_look: 'looked', zjh_log_call: 'called', zjh_log_raise: 'raised to',
+    zjh_log_fold: 'folded', zjh_log_timeout_fold: 'timed out -> fold', zjh_log_compare: 'compared vs', zjh_log_win: 'won pot',
+    zjh_waiting: 'Waiting for round to start...',
+    zjh_confirm_fold: 'Confirm fold?', zjh_confirm_compare: 'Confirm compare? Loser will be folded.',
+    zjh_invalid_raise: 'Please enter a valid raise amount',
+    badge_owner: 'Owner',
     lobby_room_desc: 'Description',
     lobby_room_desc_ph: 'Optional: room style / difficulty / desired opponents…',
     lobby_existing_id: 'Existing room id',
@@ -953,8 +1060,9 @@ $("btnCreate").onclick = async () => {
   const description = $("roomDesc").value.trim();
   const rule_mode = $("ruleMode").value;
   try {
-    const r = await api("POST", "/api/games", { name, description, rule_mode });
-    log(`${t("log_create_room")}${r.name} (${r.game_id})  rule_mode=${r.rule_mode}`, "me");
+    const game_type = ($("gameType") && $("gameType").value) || "doudizhu";
+    const r = await api("POST", "/api/games", { name, description, rule_mode, game_type });
+    log(`${t("log_create_room")}${r.name} (${r.game_id})  game_type=${r.game_type || game_type}  rule_mode=${r.rule_mode}`, "me");
     await _joinGameId(r.game_id);
   } catch (e) {
     log(t("log_create_fail") + e.message, "err");
@@ -995,6 +1103,7 @@ async function loadRooms() {
         <div style="min-width:0;flex:1">
           <div style="font-size:14px;font-weight:600">${roomName}
             <code style="font-size:11px;color:var(--muted);font-weight:400;margin-left:6px">${g.game_id}</code>
+            <span class="gt-tag gt-${escapeHtml(g.game_type||'doudizhu')}" style="font-size:11px;margin-left:6px">${escapeHtml((g.game_type === 'zhajinhua') ? t('lobby_gt_zjh') : t('lobby_gt_ddz'))}</span>
             <span style="color:${phaseColor};font-size:12px;margin-left:6px">${g.phase}</span>
             <span class="muted" style="font-size:12px;margin-left:6px">${g.rule_mode}</span>
           </div>
@@ -1184,9 +1293,11 @@ function watchGame(gid) {
 function enterRoom(gid, spectator) {
   $("lobby").style.display = "none";
   $("board").style.display = "";
+  if ($("zjhBoard")) $("zjhBoard").style.display = "none";
   $("chatPanel").style.display = "";
   $("logPanel").style.display = "";
   $("boardRoomTag").textContent = (spectator ? t("spec_prefix") : "") + gid;
+  if ($("zjhBoardRoomTag")) $("zjhBoardRoomTag").textContent = (spectator ? t("spec_prefix") : "") + gid;
   document.body.classList.add("in-room");
   try {
     const target = "/r/" + encodeURIComponent(gid);
@@ -1204,6 +1315,7 @@ function leaveRoom() {
   state = null;
   selected.clear();
   $("board").style.display = "none";
+  if ($("zjhBoard")) $("zjhBoard").style.display = "none";
   $("chatPanel").style.display = "none";
   $("logPanel").style.display = "none";
   $("lobby").style.display = "";
@@ -1243,6 +1355,10 @@ function renderCard(code, selectable) {
 
 function render() {
   if (!state) return;
+  const isZjh = state.game_type === 'zhajinhua';
+  if ($("zjhBoard")) $("zjhBoard").style.display = isZjh ? "" : "none";
+  $("board").style.display = isZjh ? "none" : "";
+  if (isZjh) { renderZjh(); return; }
   // seats -> render into left rail
   const seatsBox = $("seatsRail");
   if (seatsBox) {
@@ -1404,6 +1520,229 @@ function render() {
   // chat
   renderChat(state.chat || []);
 }
+
+
+function renderZjh() {
+  if (!state) return;
+  const me = state.you || null;
+  // seats rail
+  const seatsBox = $("seatsRail");
+  if (seatsBox) {
+    seatsBox.innerHTML = "";
+    for (let i = 0; i < 3; i++) {
+      const p = state.players[i] || {};
+      const d = document.createElement("div");
+      d.className = "seat" + (i === mySeat ? " me" : "");
+      const badges = [];
+      if (i === mySeat) badges.push(`<span class="badge you">${escapeHtml(t('badge_you'))}</span>`);
+      if (i === state.owner_seat) badges.push(`<span class="badge" style="background:#a78bfa;color:#fff">${escapeHtml(t('badge_owner'))}</span>`);
+      if (i === state.dealer_seat) badges.push(`<span class="badge" style="background:#f59e0b;color:#fff">${escapeHtml(t('zjh_badge_dealer'))}</span>`);
+      if (i === state.current_turn && state.phase === "playing") badges.push(`<span class="badge you">${escapeHtml(t('badge_playing'))}</span>`);
+      if (state.phase === "finished" && i === state.winner_seat) badges.push(`<span class="badge" style="background:#22c55e;color:#fff">${escapeHtml(t('zjh_badge_winner'))}</span>`);
+      if (p.folded) badges.push(`<span class="badge" style="background:#9ca3af;color:#fff">${escapeHtml(t('zjh_badge_fold'))}</span>`);
+      else if (p.seen) badges.push(`<span class="badge" style="background:#06b6d4;color:#fff">${escapeHtml(t('zjh_badge_seen'))}</span>`);
+      else if (p.joined && state.phase === "playing") badges.push(`<span class="badge" style="background:#64748b;color:#fff">${escapeHtml(t('zjh_badge_blind'))}</span>`);
+      const bioHtml = (p.joined && p.bio) ? `<div class="bio">${escapeHtml(p.bio)}</div>` : "";
+      d.innerHTML = `
+        <div class="name">${escapeHtml(t('seat_label'))}${i}: ${p.name ? escapeHtml(p.name) : `<em class="muted">${escapeHtml(t('seat_empty'))}</em>`}</div>
+        <div class="seat-zjh-info">${escapeHtml(t('zjh_chips_label'))}<span class="seat-zjh-chips">${p.chips != null ? p.chips : '-'}</span> · ${escapeHtml(t('zjh_bet_label'))}<strong>${p.bet_in_round != null ? p.bet_in_round : 0}</strong></div>
+        <div style="margin-top:4px">${badges.join(' ')}</div>
+        ${bioHtml}
+      `;
+      if (p.hand && p.hand.length && i !== mySeat) {
+        const sh = document.createElement("div"); sh.className = "spec-hand";
+        for (const c of p.hand) sh.appendChild(renderCard(c, false));
+        d.appendChild(sh);
+      }
+      seatsBox.appendChild(d);
+    }
+  }
+  // meta
+  $("zjhRound").textContent = state.round_no != null ? state.round_no : '—';
+  $("zjhPot").textContent = state.pot != null ? state.pot : 0;
+  $("zjhStake").textContent = state.stake != null ? state.stake : 1;
+  $("zjhMaxStake").textContent = state.max_stake != null ? state.max_stake : 20;
+  if (state.dealer_seat != null && state.dealer_seat >= 0) {
+    const dp = state.players[state.dealer_seat] || {};
+    $("zjhDealer").textContent = `${state.dealer_seat}${dp.name ? ' · ' + dp.name : ''}`;
+  } else {
+    $("zjhDealer").textContent = '—';
+  }
+  // history (current round only)
+  const histBox = $("zjhHistory");
+  histBox.innerHTML = "";
+  const hist = Array.isArray(state.history) ? state.history : [];
+  let startIdx = 0;
+  for (let i = hist.length - 1; i >= 0; i--) {
+    if (hist[i].action === 'win') { startIdx = i + 1; break; }
+  }
+  const cur = hist.slice(startIdx);
+  if (!cur.length) {
+    histBox.innerHTML = `<div class="empty">${escapeHtml(t('zjh_history_empty'))}</div>`;
+  } else {
+    for (let i = 0; i < cur.length; i++) {
+      const h = cur[i];
+      const row = document.createElement('div');
+      row.className = 'zjh-history-row' + (i === cur.length - 1 ? ' latest' : '');
+      const pl = state.players[h.seat] || {};
+      const nm = pl.name || `${t('seat_label')}${h.seat}`;
+      let desc = ''; let cls = 'act-' + h.action;
+      if (h.action === 'look') desc = t('zjh_log_look');
+      else if (h.action === 'call') desc = `${t('zjh_log_call')} ${h.amount}`;
+      else if (h.action === 'raise') desc = `${t('zjh_log_raise')} ${h.amount}` + (h.note ? ` (${h.note})` : '');
+      else if (h.action === 'fold') desc = t('zjh_log_fold');
+      else if (h.action === 'timeout_fold') desc = t('zjh_log_timeout_fold');
+      else if (h.action === 'compare') {
+        const tp = state.players[h.target_seat] || {};
+        const tn = tp.name || `${t('seat_label')}${h.target_seat}`;
+        desc = `${t('zjh_log_compare')} ${tn}` + (h.note ? ` (${h.note})` : '');
+      } else if (h.action === 'win') desc = `${t('zjh_log_win')} +${h.amount}`;
+      else desc = h.action;
+      row.innerHTML = `<span class="who">${escapeHtml(nm)}</span> <span class="${cls}">${escapeHtml(desc)}</span>`;
+      histBox.appendChild(row);
+    }
+  }
+  // my hand
+  const handBox = $("zjhHand");
+  handBox.innerHTML = "";
+  if (me) {
+    const myHand = me.hand || [];
+    if (myHand.length && me.seen) {
+      for (const c of myHand) handBox.appendChild(renderCard(c, false));
+    } else if (state.phase === "playing" && !me.folded) {
+      for (let i = 0; i < 3; i++) {
+        const back = document.createElement('div');
+        back.className = 'zjh-card-back';
+        handBox.appendChild(back);
+      }
+    } else {
+      handBox.innerHTML = `<span class="muted">${escapeHtml(t('zjh_no_hand'))}</span>`;
+    }
+  } else {
+    handBox.innerHTML = `<span class="muted">${escapeHtml(t('spec_no_hand'))}</span>`;
+  }
+  // owner buttons
+  const isOwner = !!(me && state.owner_seat === me.seat);
+  $("btnZjhDisband").style.display = isOwner ? "" : "none";
+  const canRestart = isOwner && state.phase === "finished" && !state.disbanded;
+  $("btnZjhRestart").style.display = canRestart ? "" : "none";
+  // action area
+  const playing = state.phase === "playing";
+  const myFolded = me && me.folded;
+  const showActions = !!(me && playing && !myFolded);
+  $("zjhActionArea").style.display = showActions ? "" : "none";
+  if (showActions) {
+    const myTurn = !!me.is_your_turn;
+    const tc = state.turn_clock || {};
+    const canAct = !!tc.can_act;
+    $("btnZjhLook").disabled = !!me.seen;
+    $("btnZjhCall").disabled = !myTurn || !canAct;
+    $("btnZjhCall").textContent = `${t('zjh_btn_call')} (${me.call_cost != null ? me.call_cost : '?'})`;
+    $("btnZjhRaise").disabled = !myTurn || !canAct;
+    const ri = $("zjhRaiseInput");
+    ri.disabled = !myTurn || !canAct;
+    ri.min = (state.stake || 0) + 1;
+    ri.max = state.max_stake;
+    if (!ri.value || parseInt(ri.value, 10) <= state.stake) {
+      ri.value = Math.min((state.stake || 0) + 1, state.max_stake);
+    }
+    $("btnZjhFold").disabled = !myTurn || !canAct;
+    $("btnZjhCompare").disabled = !myTurn || !canAct || !me.seen;
+    const sel = $("zjhCompareTarget");
+    const prev = sel.value;
+    sel.innerHTML = "";
+    let any = false;
+    for (let i = 0; i < 3; i++) {
+      const p = state.players[i] || {};
+      if (!p.joined || i === me.seat || p.folded) continue;
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = `${t('seat_label')}${i}${p.name ? ': ' + p.name : ''}`;
+      sel.appendChild(opt);
+      any = true;
+    }
+    if (any && prev) sel.value = prev;
+    if (!any) {
+      const opt = document.createElement('option');
+      opt.value = ""; opt.textContent = '—';
+      sel.appendChild(opt);
+    }
+    $("zjhTurnInfo").textContent = myTurn ? t('my_turn') : "";
+  }
+  // big status
+  let bigParts = [];
+  if (playing) {
+    const cs = state.current_turn;
+    const cp = state.players[cs] || {};
+    bigParts.push(`<span style="font-size:20px;font-weight:800;color:#b45309;background:#fef3c7;padding:6px 14px;border-radius:6px;border:2px solid #f59e0b">${escapeHtml(t('cur_play_prefix'))}${cs}${cp.name ? ' · ' + escapeHtml(cp.name) : ''}</span>`);
+  } else if (state.phase === "finished") {
+    const w = state.winner_seat;
+    if (w >= 0) {
+      const winner = state.players[w] || {};
+      bigParts.push(`<span style="font-size:20px;font-weight:800;color:#15803d;background:#dcfce7;padding:6px 14px;border-radius:6px;border:2px solid #22c55e">${escapeHtml(t('winner_prefix'))}${w}${winner.name ? ' · ' + escapeHtml(winner.name) : ''}</span>`);
+    }
+  } else if (state.phase === "waiting") {
+    bigParts.push(`<span class="muted">${escapeHtml(t('zjh_waiting'))}</span>`);
+  }
+  if (state.disbanded) {
+    bigParts.push(`<span style="margin-left:8px;color:#dc2626">${escapeHtml(t('disbanded'))}</span>`);
+  }
+  $("zjhBoardStatus").innerHTML = bigParts.join("");
+  // clocks
+  const tc = state.turn_clock || {};
+  if (tc.turn_started_at) {
+    let serverElapsed;
+    if (typeof tc.thinking_remaining === "number" && tc.thinking_remaining > 0) {
+      serverElapsed = tc.think_seconds - tc.thinking_remaining;
+    } else if (typeof tc.action_remaining === "number" && tc.action_remaining > 0) {
+      serverElapsed = tc.total_seconds - tc.action_remaining;
+    } else {
+      serverElapsed = tc.total_seconds;
+    }
+    clockAnchorServerElapsed = Math.max(0, serverElapsed);
+    clockAnchorLocalMs = performance.now();
+  }
+  tickClock();
+  const sm = $("turnClock"), zm = $("zjhTurnClock");
+  if (sm && zm) { zm.className = sm.className; zm.textContent = sm.textContent; }
+  // chat
+  renderChat(state.chat || []);
+}
+
+async function _zjhAction(action, extra) {
+  if (!gameId || !token) { log(t('log_need_login') || 'need login', 'err'); return; }
+  const body = Object.assign({ token, action }, extra || {});
+  try {
+    const r = await api("POST", `/api/games/${gameId}/zjh/action`, body);
+    if (r && r.result) log(`[zjh] ${action} → ${JSON.stringify(r.result)}`, 'me');
+    else log(`[zjh] ${action} ok`, 'me');
+    refresh();
+  } catch (e) {
+    log(`[zjh] ${action} fail: ${e.message}`, 'err');
+  }
+}
+
+(function bindZjh(){
+  const bind = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; };
+  bind("btnZjhLook", () => _zjhAction("look"));
+  bind("btnZjhCall", () => _zjhAction("call"));
+  bind("btnZjhRaise", () => {
+    const v = parseInt(($("zjhRaiseInput") || {}).value, 10);
+    if (!Number.isFinite(v) || v <= 0) { log(t('zjh_invalid_raise'), 'err'); return; }
+    _zjhAction("raise", { amount: v });
+  });
+  bind("btnZjhFold", () => { if (confirm(t('zjh_confirm_fold'))) _zjhAction("fold"); });
+  bind("btnZjhCompare", () => {
+    const sel = $("zjhCompareTarget");
+    if (!sel || !sel.value) return;
+    const target = parseInt(sel.value, 10);
+    if (!confirm(t('zjh_confirm_compare'))) return;
+    _zjhAction("compare", { target_seat: target });
+  });
+  bind("btnZjhLeaveRoom", () => $("btnLeaveRoom").click());
+  bind("btnZjhDisband", () => $("btnDisband").click());
+  bind("btnZjhRestart", () => $("btnRestart").click());
+})();
 
 function renderChat(msgs) {
   const box = $("chat");

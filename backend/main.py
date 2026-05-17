@@ -26,6 +26,7 @@ from .auth.deps import CurrentUser, require_admin, require_user
 from .auth.routes import admin_router as auth_admin_router
 from .auth.routes import router as auth_router
 from .doudizhu.game import Game, GameError
+from .zhajinhua.game import ZjhGame, ZjhError
 
 
 _DEFAULT_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
@@ -120,12 +121,14 @@ class CreateGameReq(BaseModel):
     rule_mode: str = Field(default="builtin", description="builtin or referee")
     referee_url: Optional[str] = None
     seed: Optional[int] = None
+    game_type: str = Field(default="doudizhu", description="doudizhu | zhajinhua")
 
 
 class CreateGameResp(BaseModel):
     game_id: str
     name: str
     rule_mode: str
+    game_type: str
 
 
 class JoinReq(BaseModel):
@@ -162,14 +165,24 @@ class DisbandReq(BaseModel):
 # ---- helpers --------------------------------------------------------------
 
 
-def _get_game(game_id: str) -> Game:
+def _get_game(game_id: str):
     g = GAMES.get(game_id)
     if g is None:
         raise HTTPException(status_code=404, detail="game not found")
     return g
 
 
-def _err(e: GameError) -> HTTPException:
+def _game_type(g) -> str:
+    return getattr(g, "game_type", "doudizhu")
+
+
+def _require_type(g, want: str):
+    gt = _game_type(g)
+    if gt != want:
+        raise HTTPException(status_code=400, detail=f"endpoint only valid for game_type={want} (this room is {gt})")
+
+
+def _err(e) -> HTTPException:
     return HTTPException(status_code=400, detail=str(e))
 
 
@@ -191,16 +204,29 @@ def create_game(req: CreateGameReq, user: CurrentUser = Depends(require_user)) -
     rule_mode = (req.rule_mode or "builtin").strip() or "builtin"
     if rule_mode != "builtin":
         raise HTTPException(status_code=400, detail="referee 规则模式暂未开放")
+    game_type = (req.game_type or "doudizhu").strip().lower()
+    if game_type not in ("doudizhu", "zhajinhua"):
+        raise HTTPException(status_code=400, detail=f"unknown game_type {game_type!r} (expected doudizhu | zhajinhua)")
     game_id = secrets.token_hex(4)
     try:
-        game = Game(
-            game_id=game_id,
-            name=name,
-            description=desc,
-            rule_mode=rule_mode,
-            referee_url=None,
-            seed=req.seed,
-        )
+        if game_type == "zhajinhua":
+            game = ZjhGame(
+                game_id=game_id,
+                name=name,
+                description=desc,
+                rule_mode=rule_mode,
+                referee_url=None,
+                seed=req.seed,
+            )
+        else:
+            game = Game(
+                game_id=game_id,
+                name=name,
+                description=desc,
+                rule_mode=rule_mode,
+                referee_url=None,
+                seed=req.seed,
+            )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     with _LOCK:
@@ -214,8 +240,8 @@ def create_game(req: CreateGameReq, user: CurrentUser = Depends(require_user)) -
         USER_ROOM[user.id] = game_id
     # Print spectator token to server log only (never exposed via any API).
     # Operator can read it with: grep SPECTATOR ~/logs/ai-agent-playground.log
-    print(f"[SPECTATOR] game_id={game_id} spectator_token={game.spectator_token}", flush=True)
-    return CreateGameResp(game_id=game_id, name=game.name, rule_mode=game.rule_mode)
+    print(f"[SPECTATOR] game_id={game_id} game_type={game_type} spectator_token={game.spectator_token}", flush=True)
+    return CreateGameResp(game_id=game_id, name=game.name, rule_mode=game.rule_mode, game_type=game_type)
 
 
 @app.get("/api/games")
@@ -237,6 +263,7 @@ def list_games() -> dict:
             "description": g.description,
             "phase": g.phase.value,
             "rule_mode": g.rule_mode,
+            "game_type": _game_type(g),
             "players": [p.name if p else None for p in g.players],
         })
     return {"games": items}
@@ -290,6 +317,7 @@ def get_state(
 @app.post("/api/games/{game_id}/bid")
 def bid(game_id: str, req: BidReq) -> dict:
     game = _get_game(game_id)
+    _require_type(game, "doudizhu")
     try:
         game.bid(req.token, req.bid)
     except GameError as e:
@@ -300,10 +328,46 @@ def bid(game_id: str, req: BidReq) -> dict:
 @app.post("/api/games/{game_id}/play")
 def play(game_id: str, req: PlayReq) -> dict:
     game = _get_game(game_id)
+    _require_type(game, "doudizhu")
     try:
         result = game.play(req.token, req.cards)
     except GameError as e:
         raise _err(e)
+    state = game.private_state(req.token)
+    state["result"] = result
+    return state
+
+
+# ---- zhajinhua-specific endpoint ------------------------------------------
+
+
+class ZjhActionReq(BaseModel):
+    token: str
+    action: str                          # look | call | raise | fold | compare
+    amount: int = 0                      # for raise: new stake
+    target_seat: int = -1                # for compare: target seat index
+
+
+@app.post("/api/games/{game_id}/zjh/action")
+def zjh_action(game_id: str, req: ZjhActionReq) -> dict:
+    game = _get_game(game_id)
+    _require_type(game, "zhajinhua")
+    a = (req.action or "").strip().lower()
+    try:
+        if a == "look":
+            result = game.look(req.token)
+        elif a == "call":
+            result = game.call(req.token)
+        elif a == "raise":
+            result = game.raise_bet(req.token, int(req.amount))
+        elif a == "fold":
+            result = game.fold(req.token)
+        elif a == "compare":
+            result = game.compare(req.token, int(req.target_seat))
+        else:
+            raise HTTPException(status_code=400, detail=f"unknown action {a!r} (expected look|call|raise|fold|compare)")
+    except ZjhError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     state = game.private_state(req.token)
     state["result"] = result
     return state
