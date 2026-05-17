@@ -345,6 +345,28 @@ class Game:
         self.disbanded_reason = reason
         self.turn_started_at = 0.0
 
+    def leave_seat(self, token: str) -> dict:
+        """A seated player gives up their seat.
+
+        Rules:
+          - If the leaver is the owner, the whole room is disbanded.
+          - Otherwise, leaving is only allowed in WAITING or FINISHED phase.
+        Returns a dict with ``disbanded`` and ``seat`` fields.
+        """
+        seat = self.seat_of(token)
+        is_owner = (seat == self.owner_seat)
+        if is_owner:
+            self.disband("owner left seat")
+            return {"disbanded": True, "seat": seat, "owner": True}
+        if self.phase in (Phase.BIDDING, Phase.PLAYING):
+            raise GameError("game in progress, cannot leave seat (ask owner to disband)")
+        p = self.players[seat]
+        if p is not None:
+            self._token_to_seat.pop(p.token, None)
+        self.players[seat] = None
+        self.last_active = time.time()
+        return {"disbanded": False, "seat": seat, "owner": False}
+
     def restart(self) -> None:
         """Start a new round in the same room with the same seated players.
 

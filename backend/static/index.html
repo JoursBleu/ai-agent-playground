@@ -373,6 +373,11 @@ const I18N = {
     log_create_room: '创建房间 ',
     log_token: '你的 token: ',
     log_disbanded: '房间已解散', log_disband_fail: '解散失败: ',
+    log_left_seat: '已离座', log_leave_fail: '离座失败: ',
+    log_room_gone: '房间已不存在，已返回大厅',
+    alert_room_gone: '该房间不存在或已解散，将返回大厅。',
+    confirm_leave_seat: '确认离座？',
+    confirm_leave_owner: '你是房主，离座将解散房间 {gid}。是否继续？',
     log_restarted: '新一局开始', log_restart_fail: '再来一局失败: ',
     log_refresh_fail: '刷新失败: ',
     log_watch: '旁观房间 ',
@@ -490,6 +495,11 @@ const I18N = {
     log_create_room: 'Created room ',
     log_token: 'Your token: ',
     log_disbanded: 'Room disbanded', log_disband_fail: 'Disband failed: ',
+    log_left_seat: 'Left seat', log_leave_fail: 'Leave failed: ',
+    log_room_gone: 'Room no longer exists; returned to lobby',
+    alert_room_gone: 'This room no longer exists or has been disbanded. Returning to the lobby.',
+    confirm_leave_seat: 'Leave your seat?',
+    confirm_leave_owner: 'You are the owner. Leaving will disband room {gid}. Continue?',
     log_restarted: 'New round started', log_restart_fail: 'New round failed: ',
     log_refresh_fail: 'Refresh failed: ',
     log_watch: 'Spectating ',
@@ -883,7 +893,11 @@ async function api(method, path, body) {
   const txt = await r.text();
   let data;
   try { data = JSON.parse(txt); } catch { data = { detail: txt }; }
-  if (!r.ok) throw new Error(data.detail || ("HTTP " + r.status));
+  if (!r.ok) {
+    const err = new Error(data.detail || ("HTTP " + r.status));
+    err.status = r.status;
+    throw err;
+  }
   return data;
 }
 
@@ -895,7 +909,19 @@ function _requireLogin() {
 }
 
 async function _joinGameId(gid) {
-  const j = await api("POST", `/api/games/${gid}/join`, {});
+  let j;
+  try {
+    j = await api("POST", `/api/games/${gid}/join`, {});
+  } catch (e) {
+    if (e && e.status === 404) {
+      try { alert(t("alert_room_gone")); } catch (_) {}
+      log(t("log_room_gone"), "err");
+      try { if (location.pathname !== "/") history.pushState({}, "", "/"); } catch (_) {}
+      loadRooms();
+      return;
+    }
+    throw e;
+  }
   gameId = gid;
   token = j.token;
   mySeat = j.seat;
@@ -977,7 +1003,25 @@ async function loadRooms() {
   }
 }
 
-$("btnLeaveRoom").onclick = () => leaveRoom();
+$("btnLeaveRoom").onclick = async () => {
+  if (gameId && token) {
+    const isOwner = !!(state && state.you && state.owner_seat === state.you.seat);
+    const msg = isOwner ? t("confirm_leave_owner") : t("confirm_leave_seat");
+    if (!confirm(msg.replace("{gid}", gameId))) return;
+    try {
+      const r = await api("POST", `/api/games/${gameId}/leave`, { token });
+      log(r && r.disbanded ? t("log_disbanded") : t("log_left_seat"), "me");
+    } catch (e) {
+      if (e && e.status === 404) {
+        // room already gone — fall through to leaveRoom()
+      } else {
+        log(t("log_leave_fail") + e.message, "err");
+        return;
+      }
+    }
+  }
+  leaveRoom();
+};
 $("btnDisband").onclick = async () => {
   if (!gameId || !token) return;
   if (!confirm(t("confirm_disband").replace("{gid}", gameId))) return;
@@ -1102,6 +1146,12 @@ async function refresh() {
     }
     render();
   } catch (e) {
+    if (e && e.status === 404) {
+      log(t("log_room_gone"), "err");
+      try { alert(t("alert_room_gone")); } catch (_) {}
+      leaveRoom();
+      return;
+    }
     log(t("log_refresh_fail") + e.message, "err");
   }
 }

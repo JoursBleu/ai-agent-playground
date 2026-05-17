@@ -349,6 +349,27 @@ def disband(game_id: str, req: DisbandReq) -> dict:
     return {"ok": True, "game_id": game_id, "reason": game.disbanded_reason, "by": "owner"}
 
 
+class LeaveReq(BaseModel):
+    token: str
+
+
+@app.post("/api/games/{game_id}/leave")
+def leave_seat(game_id: str, req: LeaveReq, user: CurrentUser = Depends(require_user)) -> dict:
+    game = _get_game(game_id)
+    try:
+        result = game.leave_seat(req.token)
+    except GameError as e:
+        raise _err(e)
+    with _LOCK:
+        if result.get("disbanded"):
+            GAMES.pop(game_id, None)
+            _release_user_room(game_id)
+        else:
+            if USER_ROOM.get(user.id) == game_id:
+                USER_ROOM.pop(user.id, None)
+    return {"ok": True, "game_id": game_id, **result}
+
+
 class RestartReq(BaseModel):
     token: str
 
