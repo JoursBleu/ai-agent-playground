@@ -730,8 +730,8 @@ let CURRENT_LANG = (function(){
     const cached = localStorage.getItem('aap_lang');
     if (cached === 'zh' || cached === 'en') return cached;
   } catch {}
-  const nav = (navigator.language || 'zh').toLowerCase();
-  return nav.startsWith('zh') ? 'zh' : 'en';
+  // default to Chinese; only switch to English when user explicitly toggles
+  return 'zh';
 })();
 function t(key) {
   const pack = I18N[CURRENT_LANG] || I18N.zh;
