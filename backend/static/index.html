@@ -518,7 +518,19 @@ const I18N = {
     cancel: '取消', close: '关闭',
     field_user_or_email: '用户名或邮箱',
     field_password: '密码', field_username: '用户名（2-31 位字母数字）',
-    field_email: '邮箱（可选）',
+    field_email: '邮箱',
+    field_email_code: '邮箱验证码',
+    btn_send_code: '发送验证码',
+    btn_resend_in: '{s} 秒后重发',
+    err_email_required: '请填写邮箱',
+    err_code_required: '请填写邮箱验证码',
+    log_code_sent: '验证码已发送到邮箱：',
+    log_reset_ok: '密码已重置，请使用新密码登录',
+    forgot_password: '忘记密码？',
+    modal_forgot: '重置密码',
+    field_new_password: '新密码',
+    btn_reset_password: '重置密码',
+    sending: '发送中...',
     field_password_rule: '密码（至少 8 位且含大写/小写/数字/特殊字符中至少 3 类）',
     field_password2: '再次输入密码',
     field_user: '用户', field_old_password: '原密码', field_new_password: '新密码',
@@ -659,7 +671,19 @@ const I18N = {
     cancel: 'Cancel', close: 'Close',
     field_user_or_email: 'Username or email',
     field_password: 'Password', field_username: 'Username (2-31 alphanumeric chars)',
-    field_email: 'Email (optional)',
+    field_email: 'Email',
+    field_email_code: 'Verification code',
+    btn_send_code: 'Send code',
+    btn_resend_in: 'Resend in {s}s',
+    err_email_required: 'Email is required',
+    err_code_required: 'Verification code is required',
+    log_code_sent: 'Verification code sent to: ',
+    log_reset_ok: 'Password reset successfully, please sign in with the new password',
+    forgot_password: 'Forgot password?',
+    modal_forgot: 'Reset password',
+    field_new_password: 'New password',
+    btn_reset_password: 'Reset password',
+    sending: 'Sending...',
     field_password_rule: 'Password (≥8 chars, ≥3 of: upper / lower / digit / special)',
     field_password2: 'Confirm password',
     field_user: 'User', field_old_password: 'Old password', field_new_password: 'New password',
@@ -845,17 +869,79 @@ async function doRegister() {
   $('regErr').textContent = '';
   const username = $('regUsername').value.trim();
   const email = $('regEmail').value.trim();
+  const code = $('regCode').value.trim();
   const password = $('regPassword').value;
   const password2 = $('regPassword2').value;
   if (!username || !password) { $('regErr').textContent = t('err_fill_login'); return; }
+  if (!email) { $('regErr').textContent = t('err_email_required'); return; }
+  if (!code) { $('regErr').textContent = t('err_code_required'); return; }
   if (password !== password2) { $('regErr').textContent = t('err_password_mismatch'); return; }
   try {
-    const r = await api('POST', '/api/auth/register', { username, password, email: email || null });
+    const r = await api('POST', '/api/auth/register', { username, password, email, code });
     currentUser = r.user;
     closeModals();
     renderUserbar();
     log(t('log_register_ok') + currentUser.username, 'me');
   } catch (e) { $('regErr').textContent = e.message; }
+}
+
+// ---- email verification code helpers ----
+const _codeCooldown = {};   // { btnId: epoch_ms_unlock }
+function _startCooldown(btnId, seconds) {
+  const btn = $(btnId);
+  if (!btn) return;
+  btn.dataset.label = btn.dataset.label || btn.textContent;
+  _codeCooldown[btnId] = Date.now() + seconds * 1000;
+  btn.disabled = true;
+  const tick = () => {
+    const remain = Math.max(0, Math.ceil((_codeCooldown[btnId] - Date.now()) / 1000));
+    if (remain <= 0) {
+      btn.disabled = false;
+      btn.textContent = t('btn_send_code');
+      return;
+    }
+    btn.textContent = t('btn_resend_in').replace('{s}', remain);
+    setTimeout(tick, 500);
+  };
+  tick();
+}
+
+async function _sendCode(emailFieldId, purpose, btnId, errFieldId) {
+  const email = $(emailFieldId).value.trim();
+  const errEl = errFieldId ? $(errFieldId) : null;
+  if (errEl) errEl.textContent = '';
+  if (!email) { if (errEl) errEl.textContent = t('err_email_required'); return; }
+  const btn = $(btnId);
+  if (btn) { btn.disabled = true; btn.dataset.label = btn.dataset.label || btn.textContent; btn.textContent = t('sending'); }
+  try {
+    const r = await api('POST', '/api/auth/send-code', { email, purpose });
+    log(t('log_code_sent') + email, 'me');
+    _startCooldown(btnId, r.resend_after || 60);
+  } catch (e) {
+    if (errEl) errEl.textContent = e.message;
+    if (btn) { btn.disabled = false; btn.textContent = t('btn_send_code'); }
+  }
+}
+
+async function doForgotPassword() {
+  $('forgotErr').textContent = '';
+  const email = $('forgotEmail').value.trim();
+  const code = $('forgotCode').value.trim();
+  const password = $('forgotPassword').value;
+  const password2 = $('forgotPassword2').value;
+  if (!email) { $('forgotErr').textContent = t('err_email_required'); return; }
+  if (!code) { $('forgotErr').textContent = t('err_code_required'); return; }
+  if (!password) { $('forgotErr').textContent = t('err_fill_login'); return; }
+  if (password !== password2) { $('forgotErr').textContent = t('err_password_mismatch'); return; }
+  try {
+    await api('POST', '/api/auth/reset-password', { email, code, new_password: password });
+    currentUser = null;
+    closeModals();
+    renderUserbar();
+    log(t('log_reset_ok'), 'me');
+    openModal('login');
+    $('loginLogin').value = email;
+  } catch (e) { $('forgotErr').textContent = e.message; }
 }
 
 async function doLogout() {
@@ -1000,6 +1086,9 @@ window.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('click', (e) => {
     if (e.target.id === 'btnLoginSubmit') doLogin();
     if (e.target.id === 'btnRegisterSubmit') doRegister();
+    if (e.target.id === 'btnForgotSubmit') doForgotPassword();
+    if (e.target.id === 'btnSendRegCode') _sendCode('regEmail', 'register', 'btnSendRegCode', 'regErr');
+    if (e.target.id === 'btnSendForgotCode') _sendCode('forgotEmail', 'reset', 'btnSendForgotCode', 'forgotErr');
     if (e.target.id === 'btnChangePw') doChangePassword();
     if (e.target.id === 'btnCreateKey') doCreateKey();
   });
@@ -1010,6 +1099,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const mod = open.dataset.mod;
     if (mod === 'login') doLogin();
     else if (mod === 'register') doRegister();
+    else if (mod === 'forgot') doForgotPassword();
   });
   loadMe();
 });
@@ -1881,7 +1971,13 @@ render = function() { _origRender(); _refreshChatInputState(); };
       <div class="field"><label data-i18n="field_password">密码</label><div class="pw-wrap"><input id="loginPassword" type="password" autocomplete="current-password" /><button type="button" class="pw-eye" data-eye="loginPassword">👁</button></div></div>
       <p class="err" id="loginErr"></p>
     </div>
-    <div class="footer"><button class="alt" data-switch="register" data-i18n="no_account">没有账号？去注册</button><div class="right"><button class="ghost" data-close data-i18n="cancel">取消</button><button id="btnLoginSubmit" data-i18n="btn_login">登录</button></div></div>
+    <div class="footer">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="alt" data-switch="register" data-i18n="no_account">没有账号？去注册</button>
+        <button class="alt" data-switch="forgot" data-i18n="forgot_password" style="background:transparent;border:none;color:var(--accent,#6d28d9);text-decoration:underline;padding:0">忘记密码？</button>
+      </div>
+      <div class="right"><button class="ghost" data-close data-i18n="cancel">取消</button><button id="btnLoginSubmit" data-i18n="btn_login">登录</button></div>
+    </div>
   </div>
 </div>
 <div id="modalRegister" class="modal-bg" data-mod="register">
@@ -1889,12 +1985,36 @@ render = function() { _origRender(); _refreshChatInputState(); };
     <header><h2 data-i18n="modal_register">注册</h2><button class="x" data-close>×</button></header>
     <div class="body">
       <div class="field"><label data-i18n="field_username">用户名（2-31 位字母数字）</label><input id="regUsername" autocomplete="username" /></div>
-      <div class="field"><label data-i18n="field_email">邮箱（可选）</label><input id="regEmail" type="email" autocomplete="email" /></div>
+      <div class="field"><label data-i18n="field_email">邮箱</label><input id="regEmail" type="email" autocomplete="email" /></div>
+      <div class="field"><label data-i18n="field_email_code">邮箱验证码</label>
+        <div style="display:flex;gap:8px;align-items:stretch">
+          <input id="regCode" inputmode="numeric" maxlength="6" autocomplete="one-time-code" style="flex:1" />
+          <button type="button" id="btnSendRegCode" class="alt" style="white-space:nowrap" data-i18n="btn_send_code">发送验证码</button>
+        </div>
+      </div>
       <div class="field"><label data-i18n="field_password_rule">密码（至少 8 位且含大写/小写/数字/特殊字符中至少 3 类）</label><div class="pw-wrap"><input id="regPassword" type="password" autocomplete="new-password" /><button type="button" class="pw-eye" data-eye="regPassword">👁</button></div></div>
       <div class="field"><label data-i18n="field_password2">再次输入密码</label><div class="pw-wrap"><input id="regPassword2" type="password" autocomplete="new-password" /><button type="button" class="pw-eye" data-eye="regPassword2">👁</button></div></div>
       <p class="err" id="regErr"></p>
     </div>
     <div class="footer"><button class="alt" data-switch="login" data-i18n="have_account">已有账号？去登录</button><div class="right"><button class="ghost" data-close data-i18n="cancel">取消</button><button id="btnRegisterSubmit" data-i18n="btn_register">注册</button></div></div>
+  </div>
+</div>
+<div id="modalForgot" class="modal-bg" data-mod="forgot">
+  <div class="modal" role="dialog" aria-modal="true">
+    <header><h2 data-i18n="modal_forgot">重置密码</h2><button class="x" data-close>×</button></header>
+    <div class="body">
+      <div class="field"><label data-i18n="field_email">邮箱</label><input id="forgotEmail" type="email" autocomplete="email" /></div>
+      <div class="field"><label data-i18n="field_email_code">邮箱验证码</label>
+        <div style="display:flex;gap:8px;align-items:stretch">
+          <input id="forgotCode" inputmode="numeric" maxlength="6" autocomplete="one-time-code" style="flex:1" />
+          <button type="button" id="btnSendForgotCode" class="alt" style="white-space:nowrap" data-i18n="btn_send_code">发送验证码</button>
+        </div>
+      </div>
+      <div class="field"><label data-i18n="field_new_password">新密码</label><div class="pw-wrap"><input id="forgotPassword" type="password" autocomplete="new-password" /><button type="button" class="pw-eye" data-eye="forgotPassword">👁</button></div></div>
+      <div class="field"><label data-i18n="field_password2">再次输入密码</label><div class="pw-wrap"><input id="forgotPassword2" type="password" autocomplete="new-password" /><button type="button" class="pw-eye" data-eye="forgotPassword2">👁</button></div></div>
+      <p class="err" id="forgotErr"></p>
+    </div>
+    <div class="footer"><button class="alt" data-switch="login" data-i18n="have_account">已有账号？去登录</button><div class="right"><button class="ghost" data-close data-i18n="cancel">取消</button><button id="btnForgotSubmit" data-i18n="btn_reset_password">重置密码</button></div></div>
   </div>
 </div>
 <div id="modalAccount" class="modal-bg" data-mod="account">

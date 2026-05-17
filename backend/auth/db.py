@@ -51,6 +51,19 @@ CREATE TABLE IF NOT EXISTS api_keys (
 );
 CREATE INDEX IF NOT EXISTS idx_apikeys_user ON api_keys(user_id);
 CREATE INDEX IF NOT EXISTS idx_apikeys_hash ON api_keys(key_hash);
+
+CREATE TABLE IF NOT EXISTS email_verifications (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    email       TEXT NOT NULL,
+    purpose     TEXT NOT NULL,
+    code_hash   TEXT NOT NULL,
+    expires_at  INTEGER NOT NULL,
+    attempts    INTEGER NOT NULL DEFAULT 0,
+    used_at     INTEGER,
+    created_at  INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_email_verif_lookup ON email_verifications(email, purpose, used_at);
+CREATE INDEX IF NOT EXISTS idx_email_verif_created ON email_verifications(created_at);
 """
 
 
@@ -210,3 +223,63 @@ def update_profile(uid: int, display_name: Optional[str], bio: Optional[str]) ->
             "UPDATE users SET display_name = ?, bio = ? WHERE id = ?",
             (display_name, bio, uid),
         )
+
+# ----- email verifications -----------------------------------------------
+
+def latest_verification(email: str, purpose: str) -> Optional[sqlite3.Row]:
+    """Return the most recent (any state) verification row for email+purpose."""
+    with connect() as conn:
+        return conn.execute(
+            "SELECT * FROM email_verifications WHERE email=? AND purpose=? "
+            "ORDER BY id DESC LIMIT 1",
+            (email, purpose),
+        ).fetchone()
+
+
+def create_verification(email: str, purpose: str, code_hash: str,
+                        ttl_seconds: int) -> int:
+    now = int(time.time())
+    with connect() as conn:
+        # invalidate previous unused codes for the same email+purpose
+        conn.execute(
+            "UPDATE email_verifications SET used_at=? "
+            "WHERE email=? AND purpose=? AND used_at IS NULL",
+            (now, email, purpose),
+        )
+        cur = conn.execute(
+            "INSERT INTO email_verifications "
+            "(email, purpose, code_hash, expires_at, attempts, used_at, created_at) "
+            "VALUES (?, ?, ?, ?, 0, NULL, ?)",
+            (email, purpose, code_hash, now + ttl_seconds, now),
+        )
+        return cur.lastrowid
+
+
+def find_active_verification(email: str, purpose: str) -> Optional[sqlite3.Row]:
+    now = int(time.time())
+    with connect() as conn:
+        return conn.execute(
+            "SELECT * FROM email_verifications WHERE email=? AND purpose=? "
+            "AND used_at IS NULL AND expires_at > ? "
+            "ORDER BY id DESC LIMIT 1",
+            (email, purpose, now),
+        ).fetchone()
+
+
+def bump_verification_attempts(vid: int) -> int:
+    with connect() as conn:
+        conn.execute("UPDATE email_verifications SET attempts = attempts + 1 WHERE id=?", (vid,))
+        r = conn.execute("SELECT attempts FROM email_verifications WHERE id=?", (vid,)).fetchone()
+        return int(r["attempts"]) if r else 0
+
+
+def consume_verification(vid: int) -> None:
+    now = int(time.time())
+    with connect() as conn:
+        conn.execute("UPDATE email_verifications SET used_at=? WHERE id=?", (now, vid))
+
+
+def purge_old_verifications(older_than_seconds: int = 7 * 24 * 3600) -> None:
+    cutoff = int(time.time()) - older_than_seconds
+    with connect() as conn:
+        conn.execute("DELETE FROM email_verifications WHERE created_at < ?", (cutoff,))

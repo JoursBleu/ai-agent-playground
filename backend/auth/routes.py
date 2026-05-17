@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import hashlib
+import logging
+import random
 import sqlite3
-from typing import Optional
+import threading
+import time
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
-from . import db
+from . import db, email_sender
 from .deps import (
     SESSION_COOKIE,
     CurrentUser,
@@ -37,7 +42,8 @@ admin_router = APIRouter(prefix="/api/admin", tags=["admin"])
 class RegisterReq(BaseModel):
     username: str
     password: str
-    email: Optional[str] = None
+    email: str
+    code: str
 
 
 class LoginReq(BaseModel):
@@ -47,6 +53,21 @@ class LoginReq(BaseModel):
 
 class ChangePasswordReq(BaseModel):
     old_password: str
+    new_password: str
+
+
+class SendCodeReq(BaseModel):
+    email: str
+    purpose: Literal["register", "reset"]
+
+
+class ForgotPasswordReq(BaseModel):
+    email: str
+
+
+class ResetPasswordReq(BaseModel):
+    email: str
+    code: str
     new_password: str
 
 
@@ -109,15 +130,20 @@ def register(req: RegisterReq, request: Request, response: Response) -> dict:
     err = check_password_strength(req.password)
     if err:
         raise HTTPException(status_code=400, detail=err)
-    email = req.email.strip().lower() if req.email else None
-    if email:
-        err = check_email(email)
-        if err:
-            raise HTTPException(status_code=400, detail=err)
+    email = (req.email or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="请填写邮箱")
+    err = check_email(email)
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+    code = (req.code or "").strip()
+    if not code:
+        raise HTTPException(status_code=400, detail="请填写邮箱验证码")
     if db.find_user_by_username(req.username):
         raise HTTPException(status_code=409, detail="用户名已存在")
-    if email and db.find_user_by_email(email):
+    if db.find_user_by_email(email):
         raise HTTPException(status_code=409, detail="邮箱已被注册")
+    _consume_email_code(email, "register", code)
     uid = db.create_user(
         username=req.username, email=email,
         password_hash=hash_password(req.password), is_admin=False,
@@ -141,6 +167,114 @@ def register(req: RegisterReq, request: Request, response: Response) -> dict:
             "warning": "请妥善保存，此 key 仅在创建时显示一次。",
         },
     }
+
+
+
+
+# ----- email verification helpers ----------------------------------------
+
+_CODE_TTL_SECONDS = 10 * 60       # 10 minutes
+_CODE_RESEND_SECONDS = 60         # min interval between resends
+_CODE_MAX_ATTEMPTS = 5
+
+log = logging.getLogger(__name__)
+
+
+def _hash_code(code: str) -> str:
+    return hashlib.sha256(code.strip().encode("utf-8")).hexdigest()
+
+
+def _send_email_async(to_addr: str, subject: str, text_body: str, html_body: str) -> None:
+    def _run():
+        try:
+            email_sender.send_mail(to_addr, subject, text_body, html_body)
+            log.info("sent verification email to %s", to_addr)
+        except Exception as exc:
+            log.exception("failed to send verification email to %s: %s", to_addr, exc)
+    threading.Thread(target=_run, daemon=True).start()
+
+
+def _issue_email_code(email: str, purpose: str) -> None:
+    """Generate code, persist hashed copy, dispatch email asynchronously."""
+    code = f"{random.randint(0, 999999):06d}"
+    db.create_verification(email, purpose, _hash_code(code), _CODE_TTL_SECONDS)
+    if not email_sender.smtp_configured():
+        log.warning("SMTP not configured; code for %s (%s) = %s", email, purpose, code)
+        return
+    subject, text, html = email_sender.render_code_mail(purpose, code)
+    _send_email_async(email, subject, text, html)
+
+
+def _consume_email_code(email: str, purpose: str, code: str) -> None:
+    row = db.find_active_verification(email, purpose)
+    if row is None:
+        raise HTTPException(status_code=400, detail="验证码不存在或已失效，请重新获取")
+    attempts = db.bump_verification_attempts(int(row["id"]))
+    if attempts > _CODE_MAX_ATTEMPTS:
+        db.consume_verification(int(row["id"]))
+        raise HTTPException(status_code=400, detail="验证码尝试次数过多，请重新获取")
+    if _hash_code(code) != row["code_hash"]:
+        raise HTTPException(status_code=400, detail="验证码错误")
+    db.consume_verification(int(row["id"]))
+
+
+@router.post("/send-code")
+def send_code(req: SendCodeReq) -> dict:
+    email = (req.email or "").strip().lower()
+    err = check_email(email)
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+    purpose = req.purpose
+    if purpose == "register":
+        if db.find_user_by_email(email):
+            raise HTTPException(status_code=409, detail="邮箱已被注册")
+    elif purpose == "reset":
+        # do not leak account existence; pretend success
+        if db.find_user_by_email(email) is None:
+            return {"ok": True, "resend_after": _CODE_RESEND_SECONDS}
+    last = db.latest_verification(email, purpose)
+    if last is not None:
+        age = int(time.time()) - int(last["created_at"])
+        if age < _CODE_RESEND_SECONDS:
+            wait = _CODE_RESEND_SECONDS - age
+            raise HTTPException(status_code=429, detail=f"请求过于频繁，请 {wait} 秒后重试")
+    _issue_email_code(email, purpose)
+    return {"ok": True, "resend_after": _CODE_RESEND_SECONDS}
+
+
+@router.post("/forgot-password")
+def forgot_password(req: ForgotPasswordReq) -> dict:
+    """Alias for send-code(purpose=reset). Always returns ok to avoid leaking."""
+    email = (req.email or "").strip().lower()
+    err = check_email(email)
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+    if db.find_user_by_email(email) is not None:
+        last = db.latest_verification(email, "reset")
+        if last is None or (int(time.time()) - int(last["created_at"])) >= _CODE_RESEND_SECONDS:
+            _issue_email_code(email, "reset")
+    return {"ok": True, "resend_after": _CODE_RESEND_SECONDS}
+
+
+@router.post("/reset-password")
+def reset_password(req: ResetPasswordReq, request: Request, response: Response) -> dict:
+    email = (req.email or "").strip().lower()
+    err = check_email(email)
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+    err = check_password_strength(req.new_password)
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+    u = db.find_user_by_email(email)
+    if u is None:
+        # consume the attempt anyway to slow probing
+        _consume_email_code(email, "reset", req.code)
+        raise HTTPException(status_code=400, detail="账号不存在")
+    _consume_email_code(email, "reset", req.code)
+    db.change_password(int(u["id"]), hash_password(req.new_password), drop_sessions=True)
+    # also clear any current session cookie
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    return {"ok": True}
 
 
 @router.post("/login")
