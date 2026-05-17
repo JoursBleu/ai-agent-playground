@@ -607,14 +607,14 @@ function closeModals() {
   document.querySelectorAll('.modal-bg').forEach(m => m.classList.remove('open'));
 }
 document.addEventListener('click', (e) => {
-  const t = e.target;
-  if (t.matches('[data-close]') || t.matches('.modal-bg')) {
-    if (t.matches('.modal-bg') && t !== e.currentTarget) {} // ignore inner
-    if (t === t.closest('.modal-bg') || t.matches('[data-close]')) closeModals();
+  const tgt = e.target;
+  if (tgt.matches('[data-close]') || tgt.matches('.modal-bg')) {
+    if (tgt.matches('.modal-bg') && tgt !== e.currentTarget) {} // ignore inner
+    if (tgt === tgt.closest('.modal-bg') || tgt.matches('[data-close]')) closeModals();
   }
-  if (t.matches('[data-switch]')) openModal(t.dataset.switch);
-  if (t.matches('[data-eye]')) {
-    const inp = document.getElementById(t.dataset.eye);
+  if (tgt.matches('[data-switch]')) openModal(tgt.dataset.switch);
+  if (tgt.matches('[data-eye]')) {
+    const inp = document.getElementById(tgt.dataset.eye);
     if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
   }
 });
@@ -1211,12 +1211,12 @@ function render() {
     }
   }
   // table
-  const t = $("table");
-  t.innerHTML = "";
+  const tableEl = $("table");
+  tableEl.innerHTML = "";
   if (state.last_play_cards && state.last_play_cards.length) {
-    for (const c of state.last_play_cards) t.appendChild(renderCard(c, false));
+    for (const c of state.last_play_cards) tableEl.appendChild(renderCard(c, false));
   } else {
-    t.innerHTML = '<span class="muted">—</span>';
+    tableEl.innerHTML = '<span class="muted">—</span>';
   }
   // bottom
   const b = $("bottom");
