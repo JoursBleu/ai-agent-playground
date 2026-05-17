@@ -183,6 +183,14 @@
   .user-row .acts button { padding:3px 8px; font-size:11px; font-weight:500; }
 
 
+/* ----- game picker ----- */
+.game-picker { display:flex; flex-direction:column; gap:6px; }
+.game-pick-item { display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--border); background:#fff; border-radius:6px; cursor:pointer; text-align:left; font-size:13px; color:#1f2937; transition:all .15s; }
+.game-pick-item:hover { border-color:#a78bfa; background:#f5f3ff; }
+.game-pick-item.active { border-color:#6d28d9; background:#ede9fe; color:#4c1d95; font-weight:600; box-shadow:0 0 0 1px #6d28d9 inset; }
+.game-pick-emoji { font-size:18px; line-height:1; }
+.game-pick-name { flex:1; }
+
 /* ----- zhajinhua ----- */
 .zjh-meta { display:flex; gap:8px; flex-wrap:wrap; margin:4px 0 6px; }
 .zjh-pill { background:#f5f3ff; border:1px solid #ddd6fe; padding:4px 12px; border-radius:999px; font-size:13px; color:#4c1d95; }
@@ -219,6 +227,19 @@
 
 <main class="layout">
 <aside class="sidebar-left">
+  <div class="panel sidebar-panel game-picker-panel">
+    <div class="muted" style="font-size:12px;margin-bottom:6px" data-i18n="side_games">🎮 游戏</div>
+    <div id="gamePicker" class="game-picker">
+      <button type="button" class="game-pick-item active" data-game="doudizhu">
+        <span class="game-pick-emoji">🀄</span>
+        <span class="game-pick-name" data-i18n="lobby_gt_ddz">斗地主</span>
+      </button>
+      <button type="button" class="game-pick-item" data-game="zhajinhua">
+        <span class="game-pick-emoji">🎴</span>
+        <span class="game-pick-name" data-i18n="lobby_gt_zjh">炸金花</span>
+      </button>
+    </div>
+  </div>
   <div class="panel sidebar-panel">
     <div class="muted" style="font-size:12px;margin-bottom:6px" data-i18n="side_clock">⏱ 出牌计时</div>
     <div id="turnClockBig" class="clock idle" style="display:block;text-align:center;font-size:20px;padding:10px;font-weight:700">—</div>
@@ -241,11 +262,6 @@
   <div class="row">
     <label data-i18n-html="lobby_room_name">房间名 <span style="color:#dc2626">*</span></label>
     <input id="roomName" data-i18n-placeholder="lobby_room_name_ph" placeholder="例：欢乐场 #1" maxlength="40" style="flex:1;min-width:200px" />
-    <label data-i18n="lobby_game_type">游戏</label>
-    <select id="gameType">
-      <option value="doudizhu" data-i18n="lobby_gt_ddz">斗地主</option>
-      <option value="zhajinhua" data-i18n="lobby_gt_zjh">炸金花</option>
-    </select>
     <label data-i18n="lobby_rule">规则</label>
     <select id="ruleMode">
       <option value="builtin" data-i18n="lobby_rule_builtin">builtin (内置)</option>
@@ -402,7 +418,7 @@ const I18N = {
     menu_account: '我的账号 / API Keys', menu_admin: '用户管理',
     admin_dot_title: '管理员',
     side_clock: '⏱ 出牌计时', clock_not_started: '尚未开始',
-    side_seats: '👥 座位', side_not_in_room: '未进入房间',
+    side_games: '🎮 游戏', side_seats: '👥 座位', side_not_in_room: '未进入房间',
     lobby_hint: '匿名可在右下方旁观已有房间。<b>创建房间</b>或<b>入座</b>需要先 <a href="#" id="hintLogin" style="color:#2563eb;text-decoration:underline">登录</a> 或 <a href="#" id="hintRegister" style="color:#2563eb;text-decoration:underline">注册</a>。玩家昵称 / 简介请到「我的账号」里设置。',
     lobby_create: '创建房间',
     lobby_room_name: '房间名 <span style="color:#dc2626">*</span>',
@@ -411,6 +427,7 @@ const I18N = {
     lobby_rule_builtin: 'builtin (内置)',
     lobby_rule_referee: 'referee (裁判 agent，暂未开放)',
     lobby_btn_create: '创建并入座',
+    lobby_btn_create_ddz: '创建斗地主房间', lobby_btn_create_zjh: '创建炸金花房间',
     lobby_game_type: '游戏', lobby_gt_ddz: '斗地主', lobby_gt_zjh: '炸金花',
     zjh_board_title: '🎴 炸金花',
     zjh_round: '第', zjh_round_unit: '局',
@@ -542,7 +559,7 @@ const I18N = {
     menu_account: 'Account / API Keys', menu_admin: 'User management',
     admin_dot_title: 'Admin',
     side_clock: '⏱ Turn clock', clock_not_started: 'Not started',
-    side_seats: '👥 Seats', side_not_in_room: 'Not in a room',
+    side_games: '🎮 Games', side_seats: '👥 Seats', side_not_in_room: 'Not in a room',
     lobby_hint: 'Anonymous users can spectate rooms listed below. <b>Creating a room</b> or <b>taking a seat</b> requires <a href="#" id="hintLogin" style="color:#2563eb;text-decoration:underline">sign-in</a> or <a href="#" id="hintRegister" style="color:#2563eb;text-decoration:underline">sign-up</a>. Set your in-game display name / bio under "Account".',
     lobby_create: 'Create a room',
     lobby_room_name: 'Room name <span style="color:#dc2626">*</span>',
@@ -551,6 +568,7 @@ const I18N = {
     lobby_rule_builtin: 'builtin',
     lobby_rule_referee: 'referee (referee agent, coming soon)',
     lobby_btn_create: 'Create & join',
+    lobby_btn_create_ddz: 'Create Dou Dizhu room', lobby_btn_create_zjh: 'Create Zhajinhua room',
     lobby_game_type: 'Game', lobby_gt_ddz: 'Dou Dizhu', lobby_gt_zjh: 'Zhajinhua',
     zjh_board_title: '🎴 Zhajinhua (3-card Brag)',
     zjh_round: 'Round', zjh_round_unit: '',
@@ -1060,7 +1078,7 @@ $("btnCreate").onclick = async () => {
   const description = $("roomDesc").value.trim();
   const rule_mode = $("ruleMode").value;
   try {
-    const game_type = ($("gameType") && $("gameType").value) || "doudizhu";
+    const game_type = currentGameType || "doudizhu";
     const r = await api("POST", "/api/games", { name, description, rule_mode, game_type });
     log(`${t("log_create_room")}${r.name} (${r.game_id})  game_type=${r.game_type || game_type}  rule_mode=${r.rule_mode}`, "me");
     await _joinGameId(r.game_id);
@@ -1079,11 +1097,32 @@ $("btnJoinExisting").onclick = async () => {
 
 $("btnRefresh").onclick = () => refresh();
 
+let currentGameType = 'doudizhu';
+function setActiveGame(gt) {
+  if (gt !== 'doudizhu' && gt !== 'zhajinhua') return;
+  currentGameType = gt;
+  document.querySelectorAll('#gamePicker .game-pick-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.game === gt);
+  });
+  // update create-button hint
+  const btn = $("btnCreate");
+  if (btn) btn.textContent = (gt === 'zhajinhua' ? t('lobby_btn_create_zjh') : t('lobby_btn_create_ddz')) || t('lobby_btn_create');
+  loadRooms();
+}
+(function bindGamePicker(){
+  document.querySelectorAll('#gamePicker .game-pick-item').forEach(el => {
+    el.onclick = () => setActiveGame(el.dataset.game);
+  });
+})();
+// keep button label in sync with active game once i18n is ready
+setTimeout(() => { try { setActiveGame(currentGameType); } catch(_) {} }, 0);
+
 async function loadRooms() {
   const box = $("roomsList");
   try {
     const r = await api("GET", "/api/games");
-    const games = r.games || [];
+    const allGames = r.games || [];
+    const games = allGames.filter(g => (g.game_type || 'doudizhu') === currentGameType);
     if (!games.length) {
       box.innerHTML = `<span class="muted">${escapeHtml(t('rooms_empty'))}</span>`;
       return;
