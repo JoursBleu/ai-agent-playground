@@ -88,9 +88,20 @@
   .seat .badge.you { background: var(--good); color: white; }
   .table {
     min-height: 70px; background: #d1fae5; border: 1px solid #a7f3d0; border-radius: 8px;
-    padding: 10px; display: flex; align-items: center; justify-content: center;
-    gap: 4px; flex-wrap: wrap;
+    padding: 10px; display: flex; flex-direction: column; align-items: stretch; justify-content: center;
+    gap: 6px;
   }
+  .table .empty { text-align: center; color: var(--muted); }
+  .trick-row { display: flex; align-items: center; gap: 10px; padding: 4px 6px; border-radius: 6px; background: rgba(255,255,255,0.45); }
+  .trick-row.latest { background: rgba(255,255,255,0.85); box-shadow: inset 0 0 0 1px #6ee7b7; }
+  .trick-row .who {
+    min-width: 110px; font-size: 12px; font-weight: 600; color: #065f46;
+    display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+  }
+  .trick-row .who .ll { color: var(--bad); font-size: 11px; font-weight: 700; }
+  .trick-row .cards { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; flex: 1; }
+  .trick-row .pass-tag { color: #6b7280; font-style: italic; font-size: 13px; }
+  .trick-row .card { width: 30px; height: 44px; padding: 3px; font-size: 11px; border-radius: 4px; cursor: default; box-shadow: 0 1px 2px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.06); }
   .hand { display: flex; flex-wrap: wrap; gap: 4px; min-height: 70px; }
   .card {
     width: 42px; height: 60px; background: white; color: #111;
@@ -346,6 +357,7 @@ const I18N = {
     bid_label: '叫地主：',
     bid_pass: '不叫', bid_one: '1分', bid_two: '2分', bid_three: '3分',
     btn_play: '出牌', btn_pass: '不要',
+    trick_empty: '本轮暂无出牌', trick_pass_label: '不要', trick_landlord_mark: '地',
     chat_title: '💬 房间聊天', chat_ph: '说点什么，回车发送', chat_send: '发送', chat_ph_spec: '旁观者不能发言',
     log_title: '操作日志',
     rules_title: '📜 游戏规则',
@@ -468,6 +480,7 @@ const I18N = {
     bid_label: 'Bidding:',
     bid_pass: 'Pass', bid_one: '1 pt', bid_two: '2 pts', bid_three: '3 pts',
     btn_play: 'Play', btn_pass: 'Pass',
+    trick_empty: 'No plays in this trick yet', trick_pass_label: 'Pass', trick_landlord_mark: 'LL',
     chat_title: '💬 Room chat', chat_ph: 'Type a message and press Enter', chat_send: 'Send', chat_ph_spec: 'Spectators cannot chat',
     log_title: 'Activity log',
     rules_title: '📜 Rules',
@@ -1260,13 +1273,61 @@ function render() {
       seatsBox.appendChild(d);
     }
   }
-  // table
+  // table — show current trick: every play / pass since the last completed trick
+  // (a trick is considered completed once we see two consecutive passes at its tail;
+  // the next play then starts a fresh trick)
   const tableEl = $("table");
   tableEl.innerHTML = "";
-  if (state.last_play_cards && state.last_play_cards.length) {
-    for (const c of state.last_play_cards) tableEl.appendChild(renderCard(c, false));
+  const hist = Array.isArray(state.history) ? state.history : [];
+  const currentTrick = [];
+  for (const h of hist) {
+    const isPass = !h.cards || h.cards.length === 0;
+    if (!isPass) {
+      // if the previous trick already ended in 2 passes, reset
+      const n = currentTrick.length;
+      if (n >= 2
+          && (!currentTrick[n-1].cards || currentTrick[n-1].cards.length === 0)
+          && (!currentTrick[n-2].cards || currentTrick[n-2].cards.length === 0)) {
+        currentTrick.length = 0;
+      }
+      currentTrick.push(h);
+    } else if (currentTrick.length > 0) {
+      currentTrick.push(h);
+    }
+  }
+  if (currentTrick.length === 0) {
+    tableEl.innerHTML = `<div class="empty">${escapeHtml(t('trick_empty'))}</div>`;
   } else {
-    tableEl.innerHTML = '<span class="muted">—</span>';
+    for (let idx = 0; idx < currentTrick.length; idx++) {
+      const h = currentTrick[idx];
+      const isPass = !h.cards || h.cards.length === 0;
+      const row = document.createElement('div');
+      row.className = 'trick-row' + (idx === currentTrick.length - 1 ? ' latest' : '');
+      const who = document.createElement('div');
+      who.className = 'who';
+      const pl = state.players && state.players[h.seat];
+      const nm = (pl && pl.name) ? pl.name : `${t('seat_label')}${h.seat}`;
+      who.appendChild(document.createTextNode(nm));
+      if (pl && pl.is_landlord) {
+        const ll = document.createElement('span');
+        ll.className = 'll';
+        ll.textContent = `[${t('trick_landlord_mark')}]`;
+        who.appendChild(ll);
+      }
+      row.appendChild(who);
+      const cardsBox = document.createElement('div');
+      cardsBox.className = 'cards';
+      if (isPass) {
+        const tag = document.createElement('span');
+        tag.className = 'pass-tag';
+        tag.textContent = t('trick_pass_label');
+        cardsBox.appendChild(tag);
+      } else {
+        for (const c of h.cards) cardsBox.appendChild(renderCard(c, false));
+      }
+      row.appendChild(cardsBox);
+      tableEl.appendChild(row);
+    }
   }
   // bottom
   const b = $("bottom");
