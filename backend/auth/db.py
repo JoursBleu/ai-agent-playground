@@ -77,6 +77,36 @@ CREATE TABLE IF NOT EXISTS points_ledger (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_points_ledger_user ON points_ledger(user_id, created_at);
+
+CREATE TABLE IF NOT EXISTS deposit_orders (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_no            TEXT UNIQUE NOT NULL,
+    user_id             INTEGER NOT NULL,
+    amount_usd          INTEGER NOT NULL,
+    points              INTEGER NOT NULL,
+    expected_amount_units INTEGER NOT NULL,
+    expected_amount_usdt TEXT NOT NULL,
+    network             TEXT NOT NULL,
+    recv_address        TEXT NOT NULL,
+    status              TEXT NOT NULL DEFAULT 'pending',
+    tx_hash             TEXT,
+    from_address        TEXT,
+    paid_amount_usdt    TEXT,
+    created_at          INTEGER NOT NULL,
+    paid_at             INTEGER,
+    expires_at          INTEGER NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_deposit_user ON deposit_orders(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_deposit_pending ON deposit_orders(network, status, expected_amount_units);
+CREATE INDEX IF NOT EXISTS idx_deposit_expires ON deposit_orders(status, expires_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_deposit_txhash ON deposit_orders(tx_hash) WHERE tx_hash IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS kv_store (
+    k          TEXT PRIMARY KEY,
+    v          TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+);
 """
 
 
@@ -349,3 +379,180 @@ def leaderboard(limit: int = 20) -> List[sqlite3.Row]:
             "WHERE is_banned = 0 ORDER BY points DESC, id ASC LIMIT ?",
             (int(limit),),
         ).fetchall()
+
+# -------- kv store --------
+
+def get_kv(k: str) -> Optional[str]:
+    with connect() as c:
+        r = c.execute("SELECT v FROM kv_store WHERE k = ?", (k,)).fetchone()
+        return r["v"] if r else None
+
+
+def set_kv(k: str, v: str) -> None:
+    now = int(time.time())
+    with connect() as c:
+        c.execute(
+            "INSERT INTO kv_store (k, v, updated_at) VALUES (?, ?, ?) "
+            "ON CONFLICT(k) DO UPDATE SET v = excluded.v, updated_at = excluded.updated_at",
+            (k, v, now),
+        )
+
+
+# -------- deposits --------
+
+import secrets as _secrets
+
+
+def _new_order_no() -> str:
+    # 16 hex chars
+    return "dep_" + _secrets.token_hex(8)
+
+
+def create_deposit_order(
+    user_id: int,
+    amount_usd: int,
+    points: int,
+    network: str,
+    recv_address: str,
+    ttl_seconds: int,
+) -> sqlite3.Row:
+    """Create a pending deposit order with a unique 4-decimal USDT amount.
+
+    The expected USDT amount = amount_usd + random_offset/10000 (in [0.0001..0.9999]).
+    Uniqueness is enforced within (network, status='pending', expires_at>now).
+    """
+    if amount_usd < 1:
+        raise ValueError("amount_usd must be >= 1")
+    now = int(time.time())
+    base_units = int(amount_usd) * 10000  # 1 USDT = 10000 units
+    with connect() as c:
+        c.execute("BEGIN IMMEDIATE")
+        # purge expired pending orders so their units become free
+        c.execute(
+            "UPDATE deposit_orders SET status='expired' WHERE status='pending' AND expires_at <= ?",
+            (now,),
+        )
+        # pick a unique offset; try random first, then sweep
+        existing = {int(r["expected_amount_units"]) for r in c.execute(
+            "SELECT expected_amount_units FROM deposit_orders "
+            "WHERE network=? AND status='pending' AND expires_at > ? "
+            "AND expected_amount_units BETWEEN ? AND ?",
+            (network, now, base_units + 1, base_units + 9999),
+        )}
+        offset = None
+        for _ in range(40):
+            cand = _secrets.randbelow(9999) + 1  # 1..9999
+            if (base_units + cand) not in existing:
+                offset = cand
+                break
+        if offset is None:
+            for cand in range(1, 10000):
+                if (base_units + cand) not in existing:
+                    offset = cand
+                    break
+        if offset is None:
+            c.execute("ROLLBACK")
+            raise RuntimeError("no free deposit slot in this USD bucket; please try a different amount")
+        units = base_units + offset
+        amount_usdt_str = f"{units / 10000:.4f}"
+        order_no = _new_order_no()
+        c.execute(
+            "INSERT INTO deposit_orders "
+            "(order_no, user_id, amount_usd, points, expected_amount_units, expected_amount_usdt, "
+            " network, recv_address, status, created_at, expires_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)",
+            (order_no, user_id, int(amount_usd), int(points), units, amount_usdt_str,
+             network, recv_address, now, now + int(ttl_seconds)),
+        )
+        row_id = c.execute("SELECT last_insert_rowid()").fetchone()[0]
+        c.execute("COMMIT")
+        return c.execute("SELECT * FROM deposit_orders WHERE id = ?", (row_id,)).fetchone()
+
+
+def get_deposit_order(order_no: str) -> Optional[sqlite3.Row]:
+    with connect() as c:
+        return c.execute("SELECT * FROM deposit_orders WHERE order_no = ?", (order_no,)).fetchone()
+
+
+def list_user_deposits(user_id: int, limit: int = 50) -> List[sqlite3.Row]:
+    with connect() as c:
+        return list(c.execute(
+            "SELECT * FROM deposit_orders WHERE user_id = ? "
+            "ORDER BY id DESC LIMIT ?",
+            (user_id, int(limit)),
+        ))
+
+
+def try_credit_deposit(tx_hash: str, amount_usdt: float, from_address: str,
+                       network: str) -> Optional[dict]:
+    """Atomically match an incoming USDT transfer to a pending order, mark paid
+    and credit the user with points.
+
+    Returns {order_no, user_id, points, amount_usd} on success, None if no match.
+    Idempotent on tx_hash via unique index.
+    """
+    units = int(round(amount_usdt * 10000))
+    now = int(time.time())
+    with connect() as c:
+        c.execute("BEGIN IMMEDIATE")
+        # Idempotency: if tx_hash already credited, no-op.
+        seen = c.execute(
+            "SELECT order_no FROM deposit_orders WHERE tx_hash = ? LIMIT 1",
+            (tx_hash,),
+        ).fetchone()
+        if seen is not None:
+            c.execute("ROLLBACK")
+            return None
+        # Match the oldest pending order with the exact units on this network.
+        row = c.execute(
+            "SELECT * FROM deposit_orders "
+            "WHERE network = ? AND status = 'pending' AND expected_amount_units = ? "
+            "  AND expires_at > ? "
+            "ORDER BY created_at ASC LIMIT 1",
+            (network, units, now),
+        ).fetchone()
+        if row is None:
+            c.execute("ROLLBACK")
+            return None
+        order_no = row["order_no"]
+        uid = int(row["user_id"])
+        points = int(row["points"])
+        amount_usd = int(row["amount_usd"])
+        amount_usdt_str = f"{amount_usdt:.6f}"
+        c.execute(
+            "UPDATE deposit_orders SET status='paid', tx_hash=?, from_address=?, "
+            " paid_amount_usdt=?, paid_at=? WHERE id=?",
+            (tx_hash, (from_address or "").lower(), amount_usdt_str, now, int(row["id"])),
+        )
+        # Credit points + ledger in the same transaction.
+        u = c.execute("SELECT points FROM users WHERE id = ?", (uid,)).fetchone()
+        if u is None:
+            c.execute("ROLLBACK")
+            return None
+        new_balance = int(u["points"] or 0) + points
+        c.execute("UPDATE users SET points = ? WHERE id = ?", (new_balance, uid))
+        c.execute(
+            "INSERT INTO points_ledger (user_id, delta, balance_after, reason, game_id, round_no, created_at) "
+            "VALUES (?, ?, ?, ?, NULL, NULL, ?)",
+            (uid, points, new_balance, f"deposit:usdt-bep20:{network}:{order_no}", now),
+        )
+        c.execute("COMMIT")
+        return {
+            "order_no": order_no,
+            "user_id": uid,
+            "points": points,
+            "amount_usd": amount_usd,
+            "new_balance": new_balance,
+        }
+
+
+def expire_pending_deposits() -> int:
+    now = int(time.time())
+    with connect() as c:
+        cur = c.execute(
+            "UPDATE deposit_orders SET status='expired' "
+            "WHERE status='pending' AND expires_at <= ?",
+            (now,),
+        )
+        return int(cur.rowcount or 0)
+

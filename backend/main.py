@@ -27,6 +27,7 @@ from .auth.routes import admin_router as auth_admin_router
 from .auth.routes import router as auth_router
 from .doudizhu.game import Game, GameError
 from .texas_holdem.game import TexasGame, TexasError
+from .payments.bsc import SCANNER as _BSC_SCANNER
 
 
 _DEFAULT_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
@@ -111,6 +112,8 @@ def _reaper_loop() -> None:
 
 _reaper_thread = threading.Thread(target=_reaper_loop, daemon=True, name="aap-reaper")
 _reaper_thread.start()
+
+_BSC_SCANNER.start()
 
 
 

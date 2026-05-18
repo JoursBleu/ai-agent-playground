@@ -348,6 +348,128 @@ def points_leaderboard(limit: int = 20) -> dict:
         ],
     }
 
+
+# -------- USDT-BEP20 deposit (recharge to points) --------
+
+DEPOSIT_TTL_SECONDS = 30 * 60          # 30 min
+DEPOSIT_MIN_USD = 1
+POINTS_PER_USD = 100
+
+
+class DepositCreateReq(BaseModel):
+    amount_usd: int = Field(..., ge=1, le=100000)
+
+
+def _deposit_row_to_dict(row, scanner) -> dict:
+    if row is None:
+        return {}
+    keys = row.keys()
+    chain_id = scanner.chain_id
+    usdt = scanner.usdt_address
+    recv = row["recv_address"]
+    amt_str = row["expected_amount_usdt"]
+    units = int(row["expected_amount_units"])
+    # EIP-681 payment URI for ERC20 transfer (works in MetaMask & most BSC wallets)
+    wei = units * (10 ** 14)             # 18 - 4 = 14
+    pay_uri = f"ethereum:{usdt}@{chain_id}/transfer?address={recv}&uint256={wei}"
+    return {
+        "order_no": row["order_no"],
+        "status": row["status"],
+        "amount_usd": int(row["amount_usd"]),
+        "points": int(row["points"]),
+        "expected_amount_usdt": amt_str,
+        "network": row["network"],
+        "chain_id": chain_id,
+        "recv_address": recv,
+        "usdt_contract": usdt,
+        "tx_hash": row["tx_hash"] if "tx_hash" in keys else None,
+        "paid_amount_usdt": row["paid_amount_usdt"] if "paid_amount_usdt" in keys else None,
+        "created_at": int(row["created_at"]),
+        "paid_at": int(row["paid_at"]) if row["paid_at"] else None,
+        "expires_at": int(row["expires_at"]),
+        "pay_uri": pay_uri,
+    }
+
+
+@router.get("/deposit/config")
+def deposit_config() -> dict:
+    """Public: tells the frontend whether USDT recharge is available."""
+    from ..payments.bsc import SCANNER
+    cfg = SCANNER.public_config()
+    cfg["min_amount_usd"] = DEPOSIT_MIN_USD
+    cfg["points_per_usd"] = POINTS_PER_USD
+    cfg["ttl_seconds"] = DEPOSIT_TTL_SECONDS
+    return cfg
+
+
+@router.post("/deposit/create")
+def deposit_create(req: DepositCreateReq,
+                   user: CurrentUser = Depends(require_user)) -> dict:
+    from ..payments.bsc import SCANNER
+    if not SCANNER.enabled:
+        raise HTTPException(status_code=503, detail="USDT 充值未启用")
+    amount = int(req.amount_usd)
+    if amount < DEPOSIT_MIN_USD:
+        raise HTTPException(status_code=400, detail=f"最小充值金额为 {DEPOSIT_MIN_USD} USDT")
+    # Optional: cap pending orders per user to prevent spamming the bucket.
+    pending = [r for r in db.list_user_deposits(user.id, limit=20)
+               if r["status"] == "pending" and int(r["expires_at"]) > int(time.time())]
+    if len(pending) >= 5:
+        raise HTTPException(status_code=429, detail="未支付订单过多，请先完成或等待过期")
+    try:
+        row = db.create_deposit_order(
+            user_id=user.id,
+            amount_usd=amount,
+            points=amount * POINTS_PER_USD,
+            network=SCANNER.network,
+            recv_address=SCANNER.recv_address,
+            ttl_seconds=DEPOSIT_TTL_SECONDS,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"ok": True, "order": _deposit_row_to_dict(row, SCANNER)}
+
+
+@router.get("/deposit/orders")
+def deposit_list(limit: int = 20,
+                 user: CurrentUser = Depends(require_user)) -> dict:
+    from ..payments.bsc import SCANNER
+    limit = max(1, min(int(limit), 100))
+    rows = db.list_user_deposits(user.id, limit=limit)
+    # Auto-mark expired pending rows in the view (DB cleanup runs in scanner loop).
+    out = []
+    now = int(time.time())
+    for r in rows:
+        d = dict(r)
+        if d["status"] == "pending" and int(d["expires_at"]) <= now:
+            d["status"] = "expired"
+        # Convert back to row-like dict via the helper.
+        out.append({
+            "order_no": d["order_no"],
+            "status": d["status"],
+            "amount_usd": int(d["amount_usd"]),
+            "points": int(d["points"]),
+            "expected_amount_usdt": d["expected_amount_usdt"],
+            "network": d["network"],
+            "tx_hash": d.get("tx_hash"),
+            "created_at": int(d["created_at"]),
+            "paid_at": int(d["paid_at"]) if d.get("paid_at") else None,
+            "expires_at": int(d["expires_at"]),
+        })
+    return {"items": out}
+
+
+@router.get("/deposit/{order_no}")
+def deposit_status(order_no: str,
+                   user: CurrentUser = Depends(require_user)) -> dict:
+    from ..payments.bsc import SCANNER
+    row = db.get_deposit_order(order_no)
+    if row is None or int(row["user_id"]) != user.id:
+        raise HTTPException(status_code=404, detail="订单不存在")
+    return {"order": _deposit_row_to_dict(row, SCANNER),
+            "current_balance": db.get_points(user.id)}
+
+
 @router.patch("/profile")
 def update_profile(req: UpdateProfileReq, user: CurrentUser = Depends(require_user)) -> dict:
     dn = (req.display_name or "").strip()

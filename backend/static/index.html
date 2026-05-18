@@ -496,6 +496,27 @@ const I18N = {
     points_col_time: '时间', points_col_delta: '变化', points_col_balance: '余额', points_col_reason: '原因', points_col_round: '局号',
     points_leaderboard: '积分榜',
     points_log_won: '本局赢得积分', points_log_lost: '本局扣除积分',
+    menu_recharge: 'USDT 充值',
+    recharge_title: 'USDT 充值 (BEP20)',
+    recharge_rate: '汇率：1 USDT = 100 积分',
+    recharge_amount_label: '充值金额 (USDT)',
+    recharge_btn_create: '生成充值订单',
+    recharge_disabled: 'USDT 充值暂未开放',
+    recharge_network: '网络',
+    recharge_addr: '收款地址',
+    recharge_amount_exact: '请精确转入',
+    recharge_amount_exact_hint: '金额末尾的小数用于识别你的订单，多转或少转都不会自动到账',
+    recharge_expires_in: '剩余时间',
+    recharge_status_pending: '等待付款',
+    recharge_status_paid: '已到账',
+    recharge_status_expired: '已过期',
+    recharge_status_failed: '失败',
+    recharge_after_pay: '已转账？等待区块确认 (约 1-2 分钟)',
+    recharge_orders_title: '我的充值记录',
+    recharge_no_orders: '暂无记录',
+    recharge_copy: '复制',
+    recharge_copied: '已复制',
+    recharge_warning: '⚠ 只支持 BSC 链 USDT-BEP20，错链转账无法找回',
     lobby_gt_texas: '德州扑克', lobby_btn_create_texas: '创建德州扑克房间',
     texas_board_title: '♠️ 德州扑克 No-Limit Hold\u2019em',
     texas_round: '第', texas_round_unit: '手', texas_street: '阶段：',
@@ -667,6 +688,27 @@ const I18N = {
     points_col_time: 'Time', points_col_delta: 'Delta', points_col_balance: 'Balance', points_col_reason: 'Reason', points_col_round: 'Round',
     points_leaderboard: 'Leaderboard',
     points_log_won: 'Won points', points_log_lost: 'Lost points',
+    menu_recharge: 'USDT recharge',
+    recharge_title: 'USDT recharge (BEP20)',
+    recharge_rate: 'Rate: 1 USDT = 100 points',
+    recharge_amount_label: 'Amount (USDT)',
+    recharge_btn_create: 'Create deposit order',
+    recharge_disabled: 'USDT recharge is not enabled',
+    recharge_network: 'Network',
+    recharge_addr: 'Receiving address',
+    recharge_amount_exact: 'Send EXACTLY',
+    recharge_amount_exact_hint: 'The decimal suffix identifies your order. Wrong amounts will NOT be credited.',
+    recharge_expires_in: 'Time left',
+    recharge_status_pending: 'Waiting for payment',
+    recharge_status_paid: 'Credited',
+    recharge_status_expired: 'Expired',
+    recharge_status_failed: 'Failed',
+    recharge_after_pay: 'Already paid? Waiting for confirmations (~1-2 min)',
+    recharge_orders_title: 'My deposit history',
+    recharge_no_orders: 'No records',
+    recharge_copy: 'Copy',
+    recharge_copied: 'Copied',
+    recharge_warning: '⚠ Only USDT-BEP20 on BSC. Wrong chain = lost funds.',
     lobby_gt_texas: "Texas Hold'em", lobby_btn_create_texas: "Create Texas Hold'em room",
     texas_board_title: "\u2660\uFE0F Texas Hold'em (No-Limit)",
     texas_round: 'Hand #', texas_round_unit: '', texas_street: 'Street: ',
@@ -907,6 +949,7 @@ function renderUserbar() {
         <div id="userMenu" class="menu">
           <button data-act="account">${escapeHtml(t('menu_account'))}</button>
           <button data-act="points">${escapeHtml(t('menu_points'))}</button>
+          <button data-act="recharge">${escapeHtml(t('menu_recharge'))}</button>
           ${admin ? `<button data-act="admin">${escapeHtml(t('menu_admin'))}</button>` : ''}
           <button data-act="logout">${escapeHtml(t('btn_logout'))}</button>
         </div>
@@ -922,6 +965,7 @@ function renderUserbar() {
         else {
           openModal(act);
           if (act === 'points') refreshPoints();
+          else if (act === 'recharge') { openRecharge(); return; }
         }
       };
     });
@@ -1485,6 +1529,188 @@ function tickClock() {
 }
 
 
+
+var _rcPollTimer = null;
+var _rcCountdownTimer = null;
+var _rcCurrentOrder = null;
+var _rcConfig = null;
+
+async function openRecharge() {
+  if (!currentUser) { openModal('login'); return; }
+  _stopRechargePolling();
+  $('rechargeOrder').style.display = 'none';
+  $('rechargeForm').style.display = '';
+  $('rechargeDisabled').style.display = 'none';
+  try {
+    if (!_rcConfig) _rcConfig = await api('GET', '/api/auth/deposit/config');
+  } catch (e) { log('[recharge] ' + e.message, 'err'); return; }
+  if (!_rcConfig.enabled) {
+    $('rechargeForm').style.display = 'none';
+    $('rechargeDisabled').style.display = '';
+  } else {
+    $('rechargeNetworkInfo').textContent =
+      `${_rcConfig.network} · chain_id=${_rcConfig.chain_id} · USDT=${(_rcConfig.usdt_address||'').slice(0,10)}…`;
+  }
+  refreshRechargeOrders();
+}
+
+document.addEventListener('click', (e) => {
+  const t = e.target;
+  if (t && t.dataset && t.dataset.rcq) {
+    const v = parseInt(t.dataset.rcq, 10);
+    const inp = document.getElementById('rechargeAmount');
+    if (inp) inp.value = v;
+  }
+});
+
+document.addEventListener('click', (e) => {
+  if (e.target && e.target.id === 'rechargeCreateBtn') createRechargeOrder();
+  else if (e.target && e.target.id === 'rcBackBtn') {
+    _stopRechargePolling();
+    $('rechargeOrder').style.display = 'none';
+    $('rechargeForm').style.display = '';
+    refreshRechargeOrders();
+  } else if (e.target && e.target.id === 'rcCopyAmount') {
+    if (_rcCurrentOrder) _copyText(_rcCurrentOrder.expected_amount_usdt, e.target);
+  } else if (e.target && e.target.id === 'rcCopyAddr') {
+    if (_rcCurrentOrder) _copyText(_rcCurrentOrder.recv_address, e.target);
+  }
+});
+
+function _copyText(text, btn) {
+  try {
+    navigator.clipboard.writeText(text);
+    const old = btn.textContent;
+    btn.textContent = t('recharge_copied');
+    setTimeout(() => { btn.textContent = old; }, 1200);
+  } catch (_) {}
+}
+
+async function createRechargeOrder() {
+  if (!currentUser) return;
+  const amt = parseInt(($('rechargeAmount').value || '0'), 10);
+  if (!amt || amt < 1) { log('amount must be >= 1', 'err'); return; }
+  const btn = $('rechargeCreateBtn');
+  btn.disabled = true;
+  try {
+    const r = await api('POST', '/api/auth/deposit/create', { amount_usd: amt });
+    _showRechargeOrder(r.order);
+  } catch (e) {
+    log('[recharge] ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function _showRechargeOrder(order) {
+  if (!order) return;
+  _rcCurrentOrder = order;
+  $('rechargeForm').style.display = 'none';
+  $('rechargeOrder').style.display = '';
+  $('rcAmountBig').textContent = order.expected_amount_usdt;
+  $('rcAddress').textContent = order.recv_address;
+  $('rcNetwork').textContent = `${order.network} (chain_id=${order.chain_id})`;
+  $('rcPoints').textContent = order.points;
+  _renderQr($('rcQrBox'), order.pay_uri || order.recv_address);
+  _updateRechargeStatus(order);
+  _startRechargePolling(order.order_no);
+}
+
+function _updateRechargeStatus(order) {
+  const line = $('rechargeStatusLine');
+  let label = t('recharge_status_pending');
+  let color = '#666';
+  if (order.status === 'paid') { label = '✓ ' + t('recharge_status_paid'); color = 'var(--good)'; }
+  else if (order.status === 'expired') { label = t('recharge_status_expired'); color = 'var(--bad)'; }
+  else if (order.status === 'failed') { label = t('recharge_status_failed'); color = 'var(--bad)'; }
+  line.innerHTML = `<span style="color:${color};font-weight:600">${escapeHtml(label)}</span> · <code style="font-size:11px">${escapeHtml(order.order_no)}</code>`;
+}
+
+function _startRechargePolling(orderNo) {
+  _stopRechargePolling();
+  const tick = async () => {
+    if (!_rcCurrentOrder || _rcCurrentOrder.order_no !== orderNo) return;
+    try {
+      const r = await api('GET', '/api/auth/deposit/' + encodeURIComponent(orderNo));
+      _rcCurrentOrder = r.order;
+      _updateRechargeStatus(r.order);
+      if (r.order.status === 'paid') {
+        _stopRechargePolling();
+        log('[recharge] +' + r.order.points + ' 积分 → ' + r.current_balance, 'me');
+        await _refreshMeQuiet();
+        refreshRechargeOrders();
+      } else if (r.order.status === 'expired') {
+        _stopRechargePolling();
+      }
+    } catch (_) {}
+  };
+  _rcPollTimer = setInterval(tick, 5000);
+  const tickCD = () => {
+    if (!_rcCurrentOrder) return;
+    const left = (_rcCurrentOrder.expires_at || 0) - Math.floor(Date.now()/1000);
+    const el = $('rcCountdown');
+    if (left <= 0) { el.textContent = '0s'; return; }
+    const m = Math.floor(left / 60), sc = left % 60;
+    el.textContent = `${m}m ${sc}s`;
+  };
+  tickCD();
+  _rcCountdownTimer = setInterval(tickCD, 1000);
+}
+
+function _stopRechargePolling() {
+  if (_rcPollTimer) { clearInterval(_rcPollTimer); _rcPollTimer = null; }
+  if (_rcCountdownTimer) { clearInterval(_rcCountdownTimer); _rcCountdownTimer = null; }
+}
+
+async function refreshRechargeOrders() {
+  try {
+    const r = await api('GET', '/api/auth/deposit/orders?limit=20');
+    const box = $('rechargeOrdersBox');
+    box.innerHTML = '';
+    if (!r.items || !r.items.length) {
+      box.innerHTML = `<div class="muted">${escapeHtml(t('recharge_no_orders'))}</div>`;
+      return;
+    }
+    for (const it of r.items) {
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.style.cssText = 'gap:8px;padding:3px 0;border-bottom:1px solid var(--border)';
+      const ts = new Date((it.created_at||0)*1000).toLocaleString();
+      let st = t('recharge_status_pending'), col = '#666';
+      if (it.status === 'paid') { st = '✓ ' + t('recharge_status_paid'); col = 'var(--good)'; }
+      else if (it.status === 'expired') { st = t('recharge_status_expired'); col = 'var(--bad)'; }
+      row.innerHTML =
+        `<div style="flex:0 0 130px;color:var(--muted)">${escapeHtml(ts)}</div>` +
+        `<div style="flex:0 0 80px">${it.amount_usd} USDT</div>` +
+        `<div style="flex:0 0 60px">+${it.points}</div>` +
+        `<div style="flex:1;color:${col}">${escapeHtml(st)}</div>` +
+        `<div style="flex:0 0 80px"><a href="#" data-rcorder="${escapeHtml(it.order_no)}" style="font-size:11px">↗</a></div>`;
+      box.appendChild(row);
+    }
+    box.querySelectorAll('[data-rcorder]').forEach(a => {
+      a.onclick = async (e) => {
+        e.preventDefault();
+        try {
+          const rr = await api('GET', '/api/auth/deposit/' + encodeURIComponent(a.dataset.rcorder));
+          _showRechargeOrder(rr.order);
+        } catch (er) { log(er.message, 'err'); }
+      };
+    });
+  } catch (e) { /* silent */ }
+}
+
+// Minimal QR-code renderer using Google chart API as fallback if local lib absent.
+function _renderQr(container, text) {
+  container.innerHTML = '';
+  if (!text) return;
+  const img = document.createElement('img');
+  img.alt = 'QR';
+  img.width = 180; img.height = 180;
+  // Use api.qrserver.com (no-tracking, free, https). If offline this just shows broken-image.
+  img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(text);
+  img.referrerPolicy = 'no-referrer';
+  container.appendChild(img);
+}
 
 async function refreshPoints() {
   if (!currentUser) return;
@@ -2382,6 +2608,72 @@ render = function() { _origRender(); _refreshChatInputState(); };
     <header><h2 data-i18n="modal_admin">用户管理</h2><button class="x" data-close>×</button></header>
     <div class="body" id="adminBody" data-i18n="lobby_loading">加载中…</div>
     <div class="footer"><span></span><div class="right"><button class="ghost" data-close data-i18n="close">关闭</button></div></div>
+  </div>
+</div>
+
+<div class="modal-bg" data-mod="recharge" style="display:none">
+  <div class="modal-card" style="max-width:520px;width:92%;max-height:88vh;overflow:auto">
+    <div class="row" style="justify-content:space-between;margin-bottom:8px">
+      <strong data-i18n="recharge_title">USDT 充值 (BEP20)</strong>
+      <button class="ghost" style="padding:4px 12px;font-size:12px" data-close-modal>×</button>
+    </div>
+
+    <div id="rechargeDisabled" class="muted" style="display:none;padding:24px;text-align:center"
+         data-i18n="recharge_disabled">USDT 充值暂未开放</div>
+
+    <div id="rechargeForm">
+      <div class="muted" style="font-size:12px;margin-bottom:8px" data-i18n="recharge_rate">汇率：1 USDT = 100 积分</div>
+      <div class="row" style="gap:8px;align-items:center;margin-bottom:8px">
+        <label style="flex:0 0 auto" data-i18n="recharge_amount_label">充值金额 (USDT)</label>
+        <input id="rechargeAmount" type="number" min="1" step="1" value="5" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:4px" />
+      </div>
+      <div class="row" style="gap:6px;margin-bottom:8px;flex-wrap:wrap">
+        <button class="ghost" style="padding:4px 10px;font-size:12px" data-rcq="1">1</button>
+        <button class="ghost" style="padding:4px 10px;font-size:12px" data-rcq="5">5</button>
+        <button class="ghost" style="padding:4px 10px;font-size:12px" data-rcq="10">10</button>
+        <button class="ghost" style="padding:4px 10px;font-size:12px" data-rcq="50">50</button>
+        <button class="ghost" style="padding:4px 10px;font-size:12px" data-rcq="100">100</button>
+      </div>
+      <div style="margin-bottom:10px">
+        <button id="rechargeCreateBtn" data-i18n="recharge_btn_create">生成充值订单</button>
+      </div>
+      <div id="rechargeNetworkInfo" class="muted" style="font-size:11px"></div>
+      <div class="muted" style="font-size:11px;margin-top:6px;color:var(--bad)" data-i18n="recharge_warning">⚠ 只支持 BSC 链 USDT-BEP20，错链转账无法找回</div>
+    </div>
+
+    <div id="rechargeOrder" style="display:none">
+      <div id="rechargeStatusLine" style="margin-bottom:10px"></div>
+      <div style="background:var(--panel,#f9f9f9);padding:10px;border-radius:6px;margin-bottom:8px">
+        <div class="muted" style="font-size:12px" data-i18n="recharge_amount_exact">请精确转入</div>
+        <div class="row" style="gap:8px;align-items:center;margin-top:4px">
+          <strong id="rcAmountBig" style="font-size:22px;font-family:monospace">—</strong>
+          <span style="font-weight:600">USDT</span>
+          <button class="ghost" style="padding:2px 8px;font-size:11px" id="rcCopyAmount" data-i18n="recharge_copy">复制</button>
+        </div>
+        <div class="muted" style="font-size:11px;margin-top:4px" data-i18n="recharge_amount_exact_hint">金额末尾的小数用于识别你的订单</div>
+      </div>
+      <div style="margin-bottom:8px">
+        <div class="muted" style="font-size:12px" data-i18n="recharge_addr">收款地址</div>
+        <div class="row" style="gap:8px;align-items:center;margin-top:2px">
+          <code id="rcAddress" style="flex:1;font-size:12px;word-break:break-all;background:var(--panel,#f9f9f9);padding:6px 8px;border-radius:4px">—</code>
+          <button class="ghost" style="padding:2px 8px;font-size:11px" id="rcCopyAddr" data-i18n="recharge_copy">复制</button>
+        </div>
+        <div class="muted" style="font-size:11px;margin-top:2px"><span data-i18n="recharge_network">网络</span>: <span id="rcNetwork">—</span></div>
+      </div>
+      <div id="rcQrBox" style="text-align:center;margin:10px 0"></div>
+      <div class="row" style="justify-content:space-between;font-size:12px;margin-top:8px">
+        <span><span data-i18n="recharge_expires_in">剩余时间</span>: <strong id="rcCountdown">—</strong></span>
+        <span>+<strong id="rcPoints">—</strong> 积分</span>
+      </div>
+      <div class="muted" style="font-size:11px;margin-top:8px" data-i18n="recharge_after_pay">已转账？等待区块确认 (约 1-2 分钟)</div>
+      <div style="margin-top:10px">
+        <button class="ghost" id="rcBackBtn" style="padding:6px 12px;font-size:12px">←</button>
+      </div>
+    </div>
+
+    <hr style="margin:14px 0;border:none;border-top:1px solid var(--border)" />
+    <div><strong data-i18n="recharge_orders_title">我的充值记录</strong></div>
+    <div id="rechargeOrdersBox" class="table" style="margin-top:6px;font-size:12px"></div>
   </div>
 </div>
 
