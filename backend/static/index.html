@@ -498,7 +498,7 @@ const I18N = {
     points_log_won: '本局赢得积分', points_log_lost: '本局扣除积分',
     menu_recharge: 'USDT 充值',
     recharge_title: 'USDT 充值 (BEP20)',
-    recharge_rate: '汇率：1 USDT = 100 积分',
+    recharge_rate: '汇率：1 USDT = 1000 积分',
     recharge_amount_label: '充值金额 (USDT)',
     recharge_btn_create: '生成充值订单',
     recharge_disabled: 'USDT 充值暂未开放',
@@ -690,7 +690,7 @@ const I18N = {
     points_log_won: 'Won points', points_log_lost: 'Lost points',
     menu_recharge: 'USDT recharge',
     recharge_title: 'USDT recharge (BEP20)',
-    recharge_rate: 'Rate: 1 USDT = 100 points',
+    recharge_rate: 'Rate: 1 USDT = 1000 points',
     recharge_amount_label: 'Amount (USDT)',
     recharge_btn_create: 'Create deposit order',
     recharge_disabled: 'USDT recharge is not enabled',
@@ -2612,10 +2612,10 @@ render = function() { _origRender(); _refreshChatInputState(); };
 </div>
 
 <div class="modal-bg" data-mod="recharge">
-  <div class="modal-card" style="max-width:520px;width:92%;max-height:88vh;overflow:auto">
+  <div class="modal" style="max-width:520px;width:92%;max-height:88vh;overflow:auto;padding:18px">
     <div class="row" style="justify-content:space-between;margin-bottom:8px">
       <strong data-i18n="recharge_title">USDT 充值 (BEP20)</strong>
-      <button class="ghost" style="padding:4px 12px;font-size:12px" data-close-modal>×</button>
+      <button class="ghost" style="padding:4px 12px;font-size:12px" data-close>×</button>
     </div>
 
     <div id="rechargeDisabled" class="muted" style="display:none;padding:24px;text-align:center"
@@ -2678,10 +2678,10 @@ render = function() { _origRender(); _refreshChatInputState(); };
 </div>
 
 <div class="modal-bg" data-mod="points">
-  <div class="modal-card" style="max-width:640px;width:92%;max-height:80vh;overflow:auto">
+  <div class="modal" style="max-width:640px;width:92%;max-height:80vh;overflow:auto;padding:18px">
     <div class="row" style="justify-content:space-between;margin-bottom:8px">
       <strong data-i18n="points_modal_title">积分明细</strong>
-      <button class="ghost" style="padding:4px 12px;font-size:12px" data-close-modal>×</button>
+      <button class="ghost" style="padding:4px 12px;font-size:12px" data-close>×</button>
     </div>
     <div class="row" style="gap:12px;margin-bottom:10px">
       <div><span class="muted" data-i18n="points_balance">当前余额：</span> <strong id="pointsBalance">—</strong></div>
