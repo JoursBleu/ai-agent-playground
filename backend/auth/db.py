@@ -15,7 +15,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     username        TEXT UNIQUE NOT NULL,
-    email           TEXT UNIQUE,
+    email           TEXT,
     password_hash   TEXT NOT NULL,
     is_admin        INTEGER NOT NULL DEFAULT 0,
     is_banned       INTEGER NOT NULL DEFAULT 0,
@@ -122,6 +122,29 @@ def init_db(db_path: Path) -> None:
                         ("points", "INTEGER NOT NULL DEFAULT 1000")):
             if col not in existing:
                 conn.execute(f"ALTER TABLE users ADD COLUMN {col} {ddl}")
+        # idempotent migration: drop UNIQUE constraint on users.email (allow duplicate emails)
+        row = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='users'"
+        ).fetchone()
+        if row and row["sql"]:
+            tail = row["sql"].split("email", 1)[1] if "email" in row["sql"] else ""
+            head = tail.split(",", 1)[0] if tail else ""
+            if "UNIQUE" in head.upper():
+                cols = [r["name"] for r in conn.execute("PRAGMA table_info(users)")]
+                col_list = ", ".join(cols)
+                conn.execute("PRAGMA foreign_keys = OFF")
+                try:
+                    conn.execute("ALTER TABLE users RENAME TO users_old_emailunique")
+                    conn.executescript(SCHEMA)
+                    new_existing = {r["name"] for r in conn.execute("PRAGMA table_info(users)")}
+                    for col, ddl in (("display_name", "TEXT"), ("bio", "TEXT"),
+                                    ("points", "INTEGER NOT NULL DEFAULT 1000")):
+                        if col not in new_existing:
+                            conn.execute(f"ALTER TABLE users ADD COLUMN {col} {ddl}")
+                    conn.execute(f"INSERT INTO users ({col_list}) SELECT {col_list} FROM users_old_emailunique")
+                    conn.execute("DROP TABLE users_old_emailunique")
+                finally:
+                    conn.execute("PRAGMA foreign_keys = ON")
         conn.commit()
 
 

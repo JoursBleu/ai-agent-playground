@@ -142,8 +142,7 @@ def register(req: RegisterReq, request: Request, response: Response) -> dict:
         raise HTTPException(status_code=400, detail="请填写邮箱验证码")
     if db.find_user_by_username(req.username):
         raise HTTPException(status_code=409, detail="用户名已存在")
-    if db.find_user_by_email(email):
-        raise HTTPException(status_code=409, detail="邮箱已被注册")
+    # NOTE: email uniqueness is not enforced; multiple accounts per email allowed
     _consume_email_code(email, "register", code)
     uid = db.create_user(
         username=req.username, email=email,
@@ -227,8 +226,8 @@ def send_code(req: SendCodeReq) -> dict:
         raise HTTPException(status_code=400, detail=err)
     purpose = req.purpose
     if purpose == "register":
-        if db.find_user_by_email(email):
-            raise HTTPException(status_code=409, detail="邮箱已被注册")
+        # allow code request even if the email was already used by another account
+        pass
     elif purpose == "reset":
         # do not leak account existence; pretend success
         if db.find_user_by_email(email) is None:
