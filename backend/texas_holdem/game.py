@@ -741,8 +741,18 @@ class TexasGame:
             "all_in": p.all_in,
         }
 
+    # Per-hand entry fee burned from each seat that participated.
+    ENTRY_FEE = 1
+
     def compute_settlement(self) -> Dict[int, int]:
-        """Per-seat point delta for the just-finished hand (chip delta 1:1)."""
+        """Per-seat point delta for the just-finished hand.
+
+        Points delta = (chip_delta_during_hand) - ENTRY_FEE
+        Chip deltas already reflect proper poker rules (raises, all-in,
+        side pots, blinds) since they come from the in-hand chip accounting.
+        Only seats that were dealt this hand (present in _hand_start_chips)
+        pay the entry fee.
+        """
         if self.phase != Phase.FINISHED:
             return {}
         out: Dict[int, int] = {}
@@ -750,8 +760,10 @@ class TexasGame:
             p = self.players[i]
             if p is None:
                 continue
-            start = self._hand_start_chips.get(i, p.chips)
-            out[i] = p.chips - start
+            if i not in self._hand_start_chips:
+                continue
+            start = self._hand_start_chips[i]
+            out[i] = (p.chips - start) - self.ENTRY_FEE
         return out
 
     def public_state(self) -> dict:

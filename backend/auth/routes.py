@@ -353,7 +353,7 @@ def points_leaderboard(limit: int = 20) -> dict:
 
 DEPOSIT_TTL_SECONDS = 30 * 60          # 30 min
 DEPOSIT_MIN_USD = 1
-POINTS_PER_USD = 100
+POINTS_PER_USD = 1000
 
 
 class DepositCreateReq(BaseModel):

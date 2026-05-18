@@ -478,15 +478,53 @@ class Game:
 
     # ---- introspection --------------------------------------------------
 
+    # Per-game entry fee (in points) burned from each seated player.
+    ENTRY_FEE = 1
+    # Base reward per winner/loser side BEFORE multipliers.
+    BASE_LANDLORD = 20
+    BASE_PEASANT = 10
+
     def compute_settlement(self) -> Dict[int, int]:
-        """Per-seat point delta for the just-finished round; {} if not applicable."""
+        """Per-seat point delta for the just-finished round; {} if not applicable.
+
+        Formula (each player deducts ENTRY_FEE entry fee on top):
+          score = base * bid * 2**bombs * 2**rocket * 2**spring
+        where:
+          base   = BASE_LANDLORD (landlord side) or BASE_PEASANT (peasant side)
+          bid    = winning bid (current_bid, 1/2/3)
+          bombs  = number of bomb plays during the round
+          rocket = number of rocket plays during the round (typically 0 or 1)
+          spring = 1 if (winner=landlord and peasants never played) or
+                       (winner=peasant and landlord played at most once)
+                 = 0 otherwise
+        """
         if self.phase != Phase.FINISHED or self.winner_seat < 0 or self.landlord_seat < 0:
             return {}
         ll = self.landlord_seat
         winner = self.winner_seat
+
+        bid_mult = max(1, int(self.current_bid))
+        bombs = sum(1 for h in self.history if h.pattern == "bomb")
+        rockets = sum(1 for h in self.history if h.pattern == "rocket")
+
+        plays_by_seat = [0, 0, 0]
+        for h in self.history:
+            if h.pattern is not None:  # skip passes
+                plays_by_seat[h.seat] += 1
         if winner == ll:
-            return {s: (20 if s == ll else -10) for s in range(3)}
-        return {s: (-20 if s == ll else 10) for s in range(3)}
+            peasant_plays = sum(plays_by_seat[s] for s in range(3) if s != ll)
+            spring = 1 if peasant_plays == 0 else 0
+        else:
+            spring = 1 if plays_by_seat[ll] <= 1 else 0
+
+        mult = bid_mult * (2 ** bombs) * (2 ** rockets) * (2 ** spring)
+        landlord_pts = self.BASE_LANDLORD * mult
+        peasant_pts = self.BASE_PEASANT * mult
+        entry = self.ENTRY_FEE
+
+        if winner == ll:
+            return {s: ((landlord_pts if s == ll else -peasant_pts) - entry) for s in range(3)}
+        return {s: ((-landlord_pts if s == ll else peasant_pts) - entry) for s in range(3)}
 
     def public_state(self) -> dict:
         self._check_turn_timeout()
