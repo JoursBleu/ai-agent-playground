@@ -60,7 +60,8 @@ CREATE TABLE IF NOT EXISTS email_verifications (
     expires_at  INTEGER NOT NULL,
     attempts    INTEGER NOT NULL DEFAULT 0,
     used_at     INTEGER,
-    created_at  INTEGER NOT NULL
+    created_at  INTEGER NOT NULL,
+    user_id     INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_email_verif_lookup ON email_verifications(email, purpose, used_at);
 CREATE INDEX IF NOT EXISTS idx_email_verif_created ON email_verifications(created_at);
@@ -122,6 +123,11 @@ def init_db(db_path: Path) -> None:
                         ("points", "INTEGER NOT NULL DEFAULT 1000")):
             if col not in existing:
                 conn.execute(f"ALTER TABLE users ADD COLUMN {col} {ddl}")
+        # add email_verifications.user_id if missing
+        ev_existing = {r["name"] for r in conn.execute("PRAGMA table_info(email_verifications)")}
+        if "user_id" not in ev_existing:
+            conn.execute("ALTER TABLE email_verifications ADD COLUMN user_id INTEGER")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_email_verif_user ON email_verifications(user_id, purpose, used_at)")
         # idempotent migration: drop UNIQUE constraint on users.email (allow duplicate emails)
         row = conn.execute(
             "SELECT sql FROM sqlite_master WHERE type='table' AND name='users'"
@@ -304,22 +310,50 @@ def latest_verification(email: str, purpose: str) -> Optional[sqlite3.Row]:
 
 
 def create_verification(email: str, purpose: str, code_hash: str,
-                        ttl_seconds: int) -> int:
+                        ttl_seconds: int, user_id: Optional[int] = None) -> int:
     now = int(time.time())
     with connect() as conn:
-        # invalidate previous unused codes for the same email+purpose
-        conn.execute(
-            "UPDATE email_verifications SET used_at=? "
-            "WHERE email=? AND purpose=? AND used_at IS NULL",
-            (now, email, purpose),
-        )
+        # invalidate previous unused codes. when user_id is given, scope by user_id+purpose;
+        # otherwise scope by email+purpose (register flow has no user yet).
+        if user_id is not None:
+            conn.execute(
+                "UPDATE email_verifications SET used_at=? "
+                "WHERE user_id=? AND purpose=? AND used_at IS NULL",
+                (now, user_id, purpose),
+            )
+        else:
+            conn.execute(
+                "UPDATE email_verifications SET used_at=? "
+                "WHERE email=? AND purpose=? AND user_id IS NULL AND used_at IS NULL",
+                (now, email, purpose),
+            )
         cur = conn.execute(
             "INSERT INTO email_verifications "
-            "(email, purpose, code_hash, expires_at, attempts, used_at, created_at) "
-            "VALUES (?, ?, ?, ?, 0, NULL, ?)",
-            (email, purpose, code_hash, now + ttl_seconds, now),
+            "(email, purpose, code_hash, expires_at, attempts, used_at, created_at, user_id) "
+            "VALUES (?, ?, ?, ?, 0, NULL, ?, ?)",
+            (email, purpose, code_hash, now + ttl_seconds, now, user_id),
         )
         return cur.lastrowid
+
+
+def latest_verification_by_user(user_id: int, purpose: str) -> Optional[sqlite3.Row]:
+    with connect() as conn:
+        return conn.execute(
+            "SELECT * FROM email_verifications WHERE user_id=? AND purpose=? "
+            "ORDER BY id DESC LIMIT 1",
+            (user_id, purpose),
+        ).fetchone()
+
+
+def find_active_verification_by_user(user_id: int, purpose: str) -> Optional[sqlite3.Row]:
+    now = int(time.time())
+    with connect() as conn:
+        return conn.execute(
+            "SELECT * FROM email_verifications WHERE user_id=? AND purpose=? "
+            "AND used_at IS NULL AND expires_at > ? "
+            "ORDER BY id DESC LIMIT 1",
+            (user_id, purpose, now),
+        ).fetchone()
 
 
 def find_active_verification(email: str, purpose: str) -> Optional[sqlite3.Row]:

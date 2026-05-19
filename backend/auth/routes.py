@@ -62,11 +62,11 @@ class SendCodeReq(BaseModel):
 
 
 class ForgotPasswordReq(BaseModel):
-    email: str
+    username: str
 
 
 class ResetPasswordReq(BaseModel):
-    email: str
+    username: str
     code: str
     new_password: str
 
@@ -194,10 +194,10 @@ def _send_email_async(to_addr: str, subject: str, text_body: str, html_body: str
     threading.Thread(target=_run, daemon=True).start()
 
 
-def _issue_email_code(email: str, purpose: str) -> None:
+def _issue_email_code(email: str, purpose: str, user_id: Optional[int] = None) -> None:
     """Generate code, persist hashed copy, dispatch email asynchronously."""
     code = f"{random.randint(0, 999999):06d}"
-    db.create_verification(email, purpose, _hash_code(code), _CODE_TTL_SECONDS)
+    db.create_verification(email, purpose, _hash_code(code), _CODE_TTL_SECONDS, user_id=user_id)
     if not email_sender.smtp_configured():
         log.warning("SMTP not configured; code for %s (%s) = %s", email, purpose, code)
         return
@@ -209,6 +209,17 @@ def _consume_email_code(email: str, purpose: str, code: str) -> None:
     row = db.find_active_verification(email, purpose)
     if row is None:
         raise HTTPException(status_code=400, detail="验证码不存在或已失效，请重新获取")
+    _check_and_consume_code(row, code)
+
+
+def _consume_email_code_for_user(user_id: int, purpose: str, code: str) -> None:
+    row = db.find_active_verification_by_user(user_id, purpose)
+    if row is None:
+        raise HTTPException(status_code=400, detail="验证码不存在或已失效，请重新获取")
+    _check_and_consume_code(row, code)
+
+
+def _check_and_consume_code(row, code: str) -> None:
     attempts = db.bump_verification_attempts(int(row["id"]))
     if attempts > _CODE_MAX_ATTEMPTS:
         db.consume_verification(int(row["id"]))
@@ -244,33 +255,32 @@ def send_code(req: SendCodeReq) -> dict:
 
 @router.post("/forgot-password")
 def forgot_password(req: ForgotPasswordReq) -> dict:
-    """Alias for send-code(purpose=reset). Always returns ok to avoid leaking."""
-    email = (req.email or "").strip().lower()
-    err = check_email(email)
-    if err:
-        raise HTTPException(status_code=400, detail=err)
-    if db.find_user_by_email(email) is not None:
-        last = db.latest_verification(email, "reset")
+    """Send a reset code to the email registered for the given username.
+    Always returns ok to avoid leaking account existence. The verification row is
+    tied to user_id so reset can only target this account."""
+    username = (req.username or "").strip()
+    if not username:
+        raise HTTPException(status_code=400, detail="请填写用户名")
+    u = db.find_user_by_username(username)
+    if u is not None and u["email"]:
+        last = db.latest_verification_by_user(int(u["id"]), "reset")
         if last is None or (int(time.time()) - int(last["created_at"])) >= _CODE_RESEND_SECONDS:
-            _issue_email_code(email, "reset")
+            _issue_email_code(u["email"], "reset", user_id=int(u["id"]))
     return {"ok": True, "resend_after": _CODE_RESEND_SECONDS}
 
 
 @router.post("/reset-password")
 def reset_password(req: ResetPasswordReq, request: Request, response: Response) -> dict:
-    email = (req.email or "").strip().lower()
-    err = check_email(email)
-    if err:
-        raise HTTPException(status_code=400, detail=err)
+    username = (req.username or "").strip()
+    if not username:
+        raise HTTPException(status_code=400, detail="请填写用户名")
     err = check_password_strength(req.new_password)
     if err:
         raise HTTPException(status_code=400, detail=err)
-    u = db.find_user_by_email(email)
+    u = db.find_user_by_username(username)
     if u is None:
-        # consume the attempt anyway to slow probing
-        _consume_email_code(email, "reset", req.code)
-        raise HTTPException(status_code=400, detail="账号不存在")
-    _consume_email_code(email, "reset", req.code)
+        raise HTTPException(status_code=400, detail="验证码不存在或已失效，请重新获取")
+    _consume_email_code_for_user(int(u["id"]), "reset", req.code)
     db.change_password(int(u["id"]), hash_password(req.new_password), drop_sessions=True)
     # also clear any current session cookie
     response.delete_cookie(SESSION_COOKIE, path="/")

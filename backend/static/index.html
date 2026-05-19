@@ -1054,6 +1054,22 @@ function _startCooldown(btnId, seconds) {
   tick();
 }
 
+async function _sendForgotCode() {
+  const errEl = $('forgotErr'); errEl.textContent = '';
+  const username = $('forgotUsername').value.trim();
+  if (!username) { errEl.textContent = t('err_username_required') || '请填写用户名'; return; }
+  const btn = $('btnSendForgotCode');
+  if (btn) { btn.disabled = true; btn.dataset.label = btn.dataset.label || btn.textContent; btn.textContent = t('sending'); }
+  try {
+    const r = await api('POST', '/api/auth/forgot-password', { username });
+    log(t('log_code_sent') + username, 'me');
+    _startCooldown('btnSendForgotCode', r.resend_after || 60);
+  } catch (e) {
+    errEl.textContent = e.message;
+    if (btn) { btn.disabled = false; btn.textContent = t('btn_send_code'); }
+  }
+}
+
 async function _sendCode(emailFieldId, purpose, btnId, errFieldId) {
   const email = $(emailFieldId).value.trim();
   const errEl = errFieldId ? $(errFieldId) : null;
@@ -1073,22 +1089,22 @@ async function _sendCode(emailFieldId, purpose, btnId, errFieldId) {
 
 async function doForgotPassword() {
   $('forgotErr').textContent = '';
-  const email = $('forgotEmail').value.trim();
+  const username = $('forgotUsername').value.trim();
   const code = $('forgotCode').value.trim();
   const password = $('forgotPassword').value;
   const password2 = $('forgotPassword2').value;
-  if (!email) { $('forgotErr').textContent = t('err_email_required'); return; }
+  if (!username) { $('forgotErr').textContent = t('err_username_required') || '请填写用户名'; return; }
   if (!code) { $('forgotErr').textContent = t('err_code_required'); return; }
   if (!password) { $('forgotErr').textContent = t('err_fill_login'); return; }
   if (password !== password2) { $('forgotErr').textContent = t('err_password_mismatch'); return; }
   try {
-    await api('POST', '/api/auth/reset-password', { email, code, new_password: password });
+    await api('POST', '/api/auth/reset-password', { username, code, new_password: password });
     currentUser = null;
     closeModals();
     renderUserbar();
     log(t('log_reset_ok'), 'me');
     openModal('login');
-    $('loginLogin').value = email;
+    $('loginLogin').value = username;
   } catch (e) { $('forgotErr').textContent = e.message; }
 }
 
@@ -1236,7 +1252,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.target.id === 'btnRegisterSubmit') doRegister();
     if (e.target.id === 'btnForgotSubmit') doForgotPassword();
     if (e.target.id === 'btnSendRegCode') _sendCode('regEmail', 'register', 'btnSendRegCode', 'regErr');
-    if (e.target.id === 'btnSendForgotCode') _sendCode('forgotEmail', 'reset', 'btnSendForgotCode', 'forgotErr');
+    if (e.target.id === 'btnSendForgotCode') _sendForgotCode();
     if (e.target.id === 'btnChangePw') doChangePassword();
     if (e.target.id === 'btnCreateKey') doCreateKey();
   });
@@ -2563,7 +2579,7 @@ render = function() { _origRender(); _refreshChatInputState(); };
   <div class="modal" role="dialog" aria-modal="true">
     <header><h2 data-i18n="modal_forgot">重置密码</h2><button class="x" data-close>×</button></header>
     <div class="body">
-      <div class="field"><label data-i18n="field_email">邮箱</label><input id="forgotEmail" type="email" autocomplete="email" /></div>
+      <div class="field"><label data-i18n="field_username">用户名</label><input id="forgotUsername" autocomplete="username" /></div>
       <div class="field"><label data-i18n="field_email_code">邮箱验证码</label>
         <div style="display:flex;gap:8px;align-items:stretch">
           <input id="forgotCode" inputmode="numeric" maxlength="6" autocomplete="one-time-code" style="flex:1" />
