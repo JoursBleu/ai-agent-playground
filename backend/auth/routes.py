@@ -71,6 +71,10 @@ class ResetPasswordReq(BaseModel):
     new_password: str
 
 
+class AccountLookupReq(BaseModel):
+    email: str
+
+
 class CreateKeyReq(BaseModel):
     name: str = Field(min_length=1, max_length=64)
 
@@ -285,6 +289,34 @@ def reset_password(req: ResetPasswordReq, request: Request, response: Response) 
     # also clear any current session cookie
     response.delete_cookie(SESSION_COOKIE, path="/")
     return {"ok": True}
+
+
+@router.post("/account-lookup")
+def account_lookup(req: AccountLookupReq) -> dict:
+    """Send the list of usernames registered with the given email.
+    Always returns ok regardless of whether the email exists, to avoid account enumeration."""
+    email = (req.email or "").strip().lower()
+    err = check_email(email)
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+    # cooldown: reuse email_verifications with purpose='lookup' to throttle
+    last = db.latest_verification(email, "lookup")
+    if last is not None:
+        age = int(time.time()) - int(last["created_at"])
+        if age < _CODE_RESEND_SECONDS:
+            wait = _CODE_RESEND_SECONDS - age
+            raise HTTPException(status_code=429, detail=f"请求过于频繁，请 {wait} 秒后重试")
+    # record the request (use a dummy code_hash; this row only serves as cooldown marker)
+    db.create_verification(email, "lookup", _hash_code("noop"), _CODE_TTL_SECONDS)
+    rows = db.list_users_by_email(email)
+    if rows:
+        usernames = [r["username"] for r in rows]
+        if email_sender.smtp_configured():
+            subject, text, html = email_sender.render_account_list_mail(email, usernames)
+            _send_email_async(email, subject, text, html)
+        else:
+            log.warning("SMTP not configured; account lookup for %s -> %s", email, usernames)
+    return {"ok": True, "resend_after": _CODE_RESEND_SECONDS}
 
 
 @router.post("/login")

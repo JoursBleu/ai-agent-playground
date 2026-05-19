@@ -194,6 +194,16 @@ def find_user_by_email(email: str) -> Optional[sqlite3.Row]:
         return c.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
 
 
+def list_users_by_email(email: str) -> List[sqlite3.Row]:
+    """Return all (active or banned) users sharing this email, ordered by id."""
+    with connect() as c:
+        return list(c.execute(
+            "SELECT id, username, email, is_admin, is_banned, created_at, last_login_at "
+            "FROM users WHERE email = ? ORDER BY id",
+            (email,),
+        ))
+
+
 def list_users(limit: int = 500) -> List[sqlite3.Row]:
     with connect() as c:
         return list(c.execute(

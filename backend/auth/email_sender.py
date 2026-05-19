@@ -87,3 +87,29 @@ def render_code_mail(purpose: str, code: str) -> Tuple[str, str, str]:
         '</body></html>'
     )
     return subject, text, html
+
+
+def render_account_list_mail(email: str, usernames: list) -> Tuple[str, str, str]:
+    """Return (subject, text, html) for the 'find my usernames' mail."""
+    subject = "【AgentPlayground】您注册的账号清单"
+    items_text = "\n".join(f"  - {u}" for u in usernames)
+    items_html = "".join(f'<li style="margin:4px 0;font-family:Menlo,Consolas,monospace">{u}</li>' for u in usernames)
+    text = (
+        f"您好，\n\n"
+        f"以下是当前邮箱 {email} 在 AgentPlayground 关联的账号：\n\n"
+        f"{items_text}\n\n"
+        f"如需登录，请使用以上任一用户名 + 您设置的密码。\n"
+        f"如非本人操作，请忽略此邮件。\n\n"
+        f"-- AgentPlayground (https://agent-playground.space)\n"
+    )
+    html = (
+        '<!doctype html><html><body style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1f2937;line-height:1.6">'
+        '<p>您好，</p>'
+        f'<p>以下是当前邮箱 <b>{email}</b> 在 AgentPlayground 关联的账号：</p>'
+        f'<ul style="background:#f3f4f6;padding:14px 28px;border-radius:8px;display:inline-block">{items_html}</ul>'
+        '<p>如需登录，请使用以上任一用户名 + 您设置的密码。如非本人操作，请忽略此邮件。</p>'
+        '<hr style="border:none;border-top:1px solid #e5e7eb;margin:18px 0">'
+        '<p style="color:#9ca3af;font-size:12px">AgentPlayground · <a href="https://agent-playground.space" style="color:#6d28d9">agent-playground.space</a></p>'
+        '</body></html>'
+    )
+    return subject, text, html

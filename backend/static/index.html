@@ -246,6 +246,19 @@
       </button>
     </div>
   </div>
+  <div class="panel sidebar-panel game-picker-panel">
+    <div class="muted" style="font-size:12px;margin-bottom:6px" data-i18n="side_ai_social">🤝 AI Social</div>
+    <div class="game-picker">
+      <button type="button" class="game-pick-item" data-social="chat">
+        <span class="game-pick-emoji">💬</span>
+        <span class="game-pick-name" data-i18n="ai_social_chat">Chat</span>
+      </button>
+      <button type="button" class="game-pick-item" data-social="blog">
+        <span class="game-pick-emoji">📝</span>
+        <span class="game-pick-name" data-i18n="ai_social_blog">Blog</span>
+      </button>
+    </div>
+  </div>
   <div class="panel sidebar-panel">
     <div class="muted" style="font-size:12px;margin-bottom:6px" data-i18n="side_clock">⏱ 出牌计时</div>
     <div id="turnClockBig" class="clock idle" style="display:block;text-align:center;font-size:20px;padding:10px;font-weight:700">—</div>
@@ -628,6 +641,12 @@ const I18N = {
     err_code_required: '请填写邮箱验证码',
     log_code_sent: '验证码已发送到邮箱：',
     log_reset_ok: '密码已重置，请使用新密码登录',
+    recover_username: '忘记用户名？', modal_recover_username: '找回用户名',
+    recover_username_hint: '输入注册邮箱，系统会把该邮箱下所有用户名发送到这个邮箱。',
+    recover_username_sent: '如果该邮箱已注册账号，用户名列表已发送到邮箱。',
+    btn_send: '发送', err_username_required: '请填写用户名',
+    side_ai_social: '🤝 AI Social', ai_social_chat: 'Chat', ai_social_blog: 'Blog',
+    modal_coming_soon: '敬请期待', coming_soon_body: '这个功能正在开发中，敬请期待。',
     forgot_password: '忘记密码？',
     modal_forgot: '重置密码',
     field_new_password: '新密码',
@@ -820,6 +839,12 @@ const I18N = {
     err_code_required: 'Verification code is required',
     log_code_sent: 'Verification code sent to: ',
     log_reset_ok: 'Password reset successfully, please sign in with the new password',
+    recover_username: 'Forgot username?', modal_recover_username: 'Recover username',
+    recover_username_hint: 'Enter your registered email and we will send the list of usernames to that inbox.',
+    recover_username_sent: 'If that email is registered, the username list has been sent.',
+    btn_send: 'Send', err_username_required: 'Please enter your username',
+    side_ai_social: '🤝 AI Social', ai_social_chat: 'Chat', ai_social_blog: 'Blog',
+    modal_coming_soon: 'Coming soon', coming_soon_body: 'This feature is under development. Stay tuned.',
     forgot_password: 'Forgot password?',
     modal_forgot: 'Reset password',
     field_new_password: 'New password',
@@ -932,6 +957,16 @@ document.addEventListener('click', (e) => {
   }
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModals(); });
+
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-social]');
+  if (!btn) return;
+  const kind = btn.dataset.social;
+  const titleKey = kind === 'chat' ? 'ai_social_chat' : 'ai_social_blog';
+  const titleEl = document.getElementById('comingSoonTitle');
+  if (titleEl) titleEl.textContent = t(titleKey) + ' · ' + t('modal_coming_soon');
+  openModal('comingSoon');
+});
 
 function renderUserbar() {
   const bar = $('userbar');
@@ -1052,6 +1087,23 @@ function _startCooldown(btnId, seconds) {
     setTimeout(tick, 500);
   };
   tick();
+}
+
+async function doRecoverUsername() {
+  const errEl = $('recoverErr'); const okEl = $('recoverOk');
+  errEl.textContent = ''; okEl.style.display = 'none';
+  const email = $('recoverEmail').value.trim();
+  if (!email) { errEl.textContent = t('err_email_required'); return; }
+  const btn = $('btnRecoverSubmit');
+  if (btn) { btn.disabled = true; btn.dataset.label = btn.dataset.label || btn.textContent; btn.textContent = t('sending'); }
+  try {
+    const r = await api('POST', '/api/auth/account-lookup', { email });
+    okEl.style.display = 'block';
+    _startCooldown('btnRecoverSubmit', r.resend_after || 60);
+  } catch (e) {
+    errEl.textContent = e.message;
+    if (btn) { btn.disabled = false; btn.textContent = t('btn_send'); }
+  }
 }
 
 async function _sendForgotCode() {
@@ -1251,6 +1303,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.target.id === 'btnLoginSubmit') doLogin();
     if (e.target.id === 'btnRegisterSubmit') doRegister();
     if (e.target.id === 'btnForgotSubmit') doForgotPassword();
+    if (e.target.id === 'btnRecoverSubmit') doRecoverUsername();
     if (e.target.id === 'btnSendRegCode') _sendCode('regEmail', 'register', 'btnSendRegCode', 'regErr');
     if (e.target.id === 'btnSendForgotCode') _sendForgotCode();
     if (e.target.id === 'btnChangePw') doChangePassword();
@@ -1264,6 +1317,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (mod === 'login') doLogin();
     else if (mod === 'register') doRegister();
     else if (mod === 'forgot') doForgotPassword();
+    else if (mod === 'recoverUsername') doRecoverUsername();
   });
   loadMe();
 });
@@ -2551,6 +2605,7 @@ render = function() { _origRender(); _refreshChatInputState(); };
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <button class="alt" data-switch="register" data-i18n="no_account">没有账号？去注册</button>
         <button class="alt" data-switch="forgot" data-i18n="forgot_password" style="background:transparent;border:none;color:var(--accent,#6d28d9);text-decoration:underline;padding:0">忘记密码？</button>
+        <button class="alt" data-switch="recoverUsername" data-i18n="recover_username" style="background:transparent;border:none;color:var(--accent,#6d28d9);text-decoration:underline;padding:0">忘记用户名？</button>
       </div>
       <div class="right"><button class="ghost" data-close data-i18n="cancel">取消</button><button id="btnLoginSubmit" data-i18n="btn_login">登录</button></div>
     </div>
@@ -2591,6 +2646,27 @@ render = function() { _origRender(); _refreshChatInputState(); };
       <p class="err" id="forgotErr"></p>
     </div>
     <div class="footer"><button class="alt" data-switch="login" data-i18n="have_account">已有账号？去登录</button><div class="right"><button class="ghost" data-close data-i18n="cancel">取消</button><button id="btnForgotSubmit" data-i18n="btn_reset_password">重置密码</button></div></div>
+  </div>
+</div>
+<div id="modalComingSoon" class="modal-bg" data-mod="comingSoon">
+  <div class="modal" role="dialog" aria-modal="true">
+    <header><h2 id="comingSoonTitle" data-i18n="modal_coming_soon">敬请期待</h2><button class="x" data-close>×</button></header>
+    <div class="body">
+      <p data-i18n="coming_soon_body">这个功能正在开发中，敬请期待。</p>
+    </div>
+    <div class="footer"><span></span><div class="right"><button class="ghost" data-close data-i18n="close">关闭</button></div></div>
+  </div>
+</div>
+<div id="modalRecoverUsername" class="modal-bg" data-mod="recoverUsername">
+  <div class="modal" role="dialog" aria-modal="true">
+    <header><h2 data-i18n="modal_recover_username">找回用户名</h2><button class="x" data-close>×</button></header>
+    <div class="body">
+      <p class="muted" style="font-size:13px;margin:0 0 10px 0" data-i18n="recover_username_hint">输入注册邮箱，系统会把该邮箱下所有用户名发送到这个邮箱。</p>
+      <div class="field"><label data-i18n="field_email">邮箱</label><input id="recoverEmail" type="email" autocomplete="email" /></div>
+      <p class="err" id="recoverErr"></p>
+      <p id="recoverOk" style="color:#10b981;font-size:13px;display:none" data-i18n="recover_username_sent">如果该邮箱已注册账号，用户名列表已发送到邮箱。</p>
+    </div>
+    <div class="footer"><button class="alt" data-switch="login" data-i18n="have_account">已有账号？去登录</button><div class="right"><button class="ghost" data-close data-i18n="cancel">取消</button><button id="btnRecoverSubmit" data-i18n="btn_send">发送</button></div></div>
   </div>
 </div>
 <div id="modalAccount" class="modal-bg" data-mod="account">
