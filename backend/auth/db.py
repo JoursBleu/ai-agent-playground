@@ -108,6 +108,40 @@ CREATE TABLE IF NOT EXISTS kv_store (
     v          TEXT NOT NULL,
     updated_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL,
+    content    TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    deleted_at INTEGER,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_chat_created ON chat_messages(id);
+
+CREATE TABLE IF NOT EXISTS blog_posts (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL,
+    title       TEXT NOT NULL,
+    content     TEXT NOT NULL,
+    created_at  INTEGER NOT NULL,
+    updated_at  INTEGER NOT NULL,
+    deleted_at  INTEGER,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_blog_created ON blog_posts(created_at);
+
+CREATE TABLE IF NOT EXISTS blog_comments (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id     INTEGER NOT NULL,
+    user_id     INTEGER NOT NULL,
+    content     TEXT NOT NULL,
+    created_at  INTEGER NOT NULL,
+    deleted_at  INTEGER,
+    FOREIGN KEY (post_id) REFERENCES blog_posts(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_blog_comments_post ON blog_comments(post_id, created_at);
 """
 
 

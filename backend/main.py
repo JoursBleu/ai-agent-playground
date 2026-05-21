@@ -40,6 +40,8 @@ bootstrap_admin(DATA_DIR)
 app = FastAPI(title="ai-agent-playground", version="0.2.0")
 app.include_router(auth_router)
 app.include_router(auth_admin_router)
+from .social import social_router
+app.include_router(social_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
