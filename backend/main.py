@@ -115,6 +115,30 @@ def _reaper_loop() -> None:
 _reaper_thread = threading.Thread(target=_reaper_loop, daemon=True, name="aap-reaper")
 _reaper_thread.start()
 
+
+# ---- periodic deposit expiry sweep (independent of BSC scanner) ----------
+def _deposit_expiry_loop() -> None:
+    # one-shot sweep at startup so stale rows from a previous run clean up immediately
+    try:
+        n = auth_db.expire_pending_deposits()
+        if n:
+            print(f"[deposit-expiry] startup swept {n} stale pending orders", flush=True)
+    except Exception as e:
+        print(f"[deposit-expiry] startup error: {e}", flush=True)
+    while True:
+        time.sleep(300)  # every 5 minutes
+        try:
+            n = auth_db.expire_pending_deposits()
+            if n:
+                print(f"[deposit-expiry] swept {n} expired pending orders", flush=True)
+        except Exception as e:
+            print(f"[deposit-expiry] error: {e}", flush=True)
+
+
+_deposit_expiry_thread = threading.Thread(
+    target=_deposit_expiry_loop, daemon=True, name="aap-deposit-expiry")
+_deposit_expiry_thread.start()
+
 _BSC_SCANNER.start()
 
 
