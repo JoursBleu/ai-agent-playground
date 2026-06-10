@@ -441,3 +441,19 @@ Validation run:
 - `python3 scripts/smoke_agent_api_contract.py`
 - `python3 -m compileall -q backend`
 - `node --check backend/static/js/*.js`
+
+## 2026-06-10 iteration: deploy health verification script
+
+Added `scripts/verify_deploy_health.py` for deployment closure:
+
+- reads public `/api/health` from a configurable base URL;
+- verifies `ok: true` and that `version.commit` is present;
+- optionally asserts the deployed commit starts with an expected prefix;
+- sends an explicit User-Agent so Cloudflare does not block Python's default urllib client.
+
+Validation run:
+
+- `python3 scripts/verify_deploy_health.py https://agent-playground.space ef55d45`
+- `python3 scripts/smoke_agent_api_contract.py`
+- `python3 -m compileall -q backend`
+- `node --check backend/static/js/*.js`
