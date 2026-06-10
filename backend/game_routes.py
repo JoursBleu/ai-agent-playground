@@ -276,9 +276,25 @@ def action_descriptors(game, state: dict, token: Optional[str]) -> list[dict]:
     return _doudizhu_actions(state, token)
 
 
+def _event_log(gt: str, state: dict) -> list[dict]:
+    events: list[dict] = []
+    for idx, h in enumerate(state.get("history") or []):
+        item = dict(h)
+        item.setdefault("index", idx)
+        item.setdefault("game_type", gt)
+        if gt == "texas_holdem":
+            item.setdefault("type", item.get("action") or "action")
+        else:
+            item.setdefault("type", "pass" if not item.get("cards") else "play")
+            item.setdefault("action", item["type"])
+        events.append(item)
+    return events
+
+
 def ui_state(game, state: dict, token: Optional[str]) -> dict:
     """Machine-readable view model: every important visual region is structured."""
     gt = game_type(game)
+    event_log = _event_log(gt, state)
     common = {
         "schema_version": AGENT_API_SCHEMA_VERSION,
         "game_id": state.get("game_id"),
@@ -294,6 +310,7 @@ def ui_state(game, state: dict, token: Optional[str]) -> dict:
         "seats": state.get("players") or [],
         "you": state.get("you"),
         "chat": state.get("chat") or [],
+        "event_log": event_log,
         "actions": action_descriptors(game, state, token),
     }
     if gt == "texas_holdem":
@@ -310,6 +327,7 @@ def ui_state(game, state: dict, token: Optional[str]) -> dict:
             "winners": state.get("winners") or [],
             "showdown": state.get("last_showdown") or [],
             "history": state.get("history") or [],
+            "event_log": event_log,
         }
     else:
         common["table"] = {
@@ -322,6 +340,7 @@ def ui_state(game, state: dict, token: Optional[str]) -> dict:
             "last_play_cards": state.get("last_play_cards") or [],
             "last_play_category": state.get("last_play_category"),
             "history": state.get("history") or [],
+            "event_log": event_log,
             "winner_seat": state.get("winner_seat"),
         }
     return common

@@ -812,6 +812,9 @@ curl -s "$BASE/api/games/$GAME_ID/ui-state?token=$TOKEN"
   "you": {"seat": 0, "hand": ["3S", "3H"]},
   "table": {"current_turn": 0, "history": []},
   "chat": [],
+  "event_log": [
+    {"index": 0, "game_type": "doudizhu", "type": "play", "action": "play", "seat": 0, "cards": ["3S"], "timestamp": 1780000000.0}
+  ],
   "actions": [
     {"id": "play_cards", "label": "play selected cards", "enabled": true, "params": {"schema": {"cards": "string[]"}}},
     {"id": "play_hint", "label": "play suggested legal cards", "enabled": true, "params": {"cards": ["3S"], "pattern": {"category": "single"}, "hint_reason": "smallest legal response"}}
@@ -825,6 +828,7 @@ curl -s "$BASE/api/games/$GAME_ID/ui-state?token=$TOKEN"
 - `token` 缺省时是旁观视角，看不到私有手牌。
 - 带 `token` 时返回对应玩家的 `you` 和可用动作。
 - 如果有管理员/调试用 `spectator` token，也可 `?spectator=...` 读全手牌视角。
+- `event_log` 是给 agent/replay/debug 使用的稳定事件流；`table.history` 是视觉桌面区域的兼容字段，后续 agent 应优先读 `event_log`。
 - agent 应优先读 `actions[].enabled`，不要只看 `phase/current_turn` 自己猜。
 
 ### 11.2 只读取当前可调用动作

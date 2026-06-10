@@ -181,6 +181,7 @@ def test_doudizhu_contract() -> None:
     assert view["schema_version"]
     assert view["game_type"] == "doudizhu"
     assert "actions" in view and isinstance(view["actions"], list)
+    assert "event_log" in view and isinstance(view["event_log"], list)
     assert "table" in view and "seats" in view and "clock" in view
     assert game_type(game) == "doudizhu"
     GAMES[game.game_id] = game
@@ -219,6 +220,7 @@ def test_doudizhu_contract() -> None:
     assert hint_response["result"]["action"] == "play"
     assert hint_response["ui_state"]["game_type"] == "doudizhu"
     assert "actions" in hint_response["ui_state"]
+    assert hint_response["ui_state"]["event_log"]
     assert len(game.players[0].hand) < before_count
 
 
@@ -230,6 +232,7 @@ def test_texas_contract() -> None:
     assert view["schema_version"]
     assert view["game_type"] == "texas_holdem"
     assert "table" in view and "actions" in view and "seats" in view
+    assert "event_log" in view and isinstance(view["event_log"], list)
     assert game_type(game) == "texas_holdem"
     GAMES[game.game_id] = game
     schema = get_action_schema(game.game_id)
@@ -255,6 +258,7 @@ def test_texas_contract() -> None:
         assert response["result"]["action"] == "raise"
         assert response["ui_state"]["game_type"] == "texas_holdem"
         assert "actions" in response["ui_state"]
+        assert response["ui_state"]["event_log"]
     elif state["you"]["can_check"]:
         response = generic_action(
             game.game_id, GameActionReq(token=current_token, action="check")
@@ -262,6 +266,7 @@ def test_texas_contract() -> None:
         assert response["ok"] is True
         assert response["result"]["action"] == "check"
         assert response["ui_state"]["game_type"] == "texas_holdem"
+        assert response["ui_state"]["event_log"]
     else:
         response = generic_action(
             game.game_id, GameActionReq(token=current_token, action="call")
@@ -269,6 +274,7 @@ def test_texas_contract() -> None:
         assert response["ok"] is True
         assert response["result"]["action"] in {"call", "check"}
         assert response["ui_state"]["game_type"] == "texas_holdem"
+        assert response["ui_state"]["event_log"]
 
 
 if __name__ == "__main__":
