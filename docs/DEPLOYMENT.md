@@ -1,0 +1,111 @@
+# Deployment Runbook
+
+Production site: <https://agent-playground.space>  
+Production host: `latex-tools`  
+Repo branch: `business`  
+App path: `/opt/ai-agent-playground`
+
+This runbook is intentionally operational and short. The goal is a repeatable loop:
+
+```text
+self-check -> commit -> push -> deploy -> public verify -> rollback plan ready
+```
+
+## 1. Local preflight
+
+From the repo root:
+
+```bash
+python3 scripts/smoke_agent_api_contract.py
+python3 -m compileall -q backend
+for f in backend/static/js/*.js; do node --check "$f" || exit 1; done
+```
+
+Optional pre-deploy baseline:
+
+```bash
+python3 scripts/verify_deploy_health.py https://agent-playground.space <current-live-commit-prefix>
+python3 scripts/verify_public_agent_contract.py https://agent-playground.space <current-live-commit-prefix>
+```
+
+## 2. Commit and push
+
+```bash
+git status --short
+git diff --check
+git add <changed-files>
+git commit -m "..."
+GIT_SSH_COMMAND='ssh -i /home/node/.openclaw/workspace/docs/ssh/id_rsa -o UserKnownHostsFile=/home/node/.openclaw/workspace/docs/ssh/known_hosts -o StrictHostKeyChecking=accept-new' \
+  git push git@github.com:JoursBleu/ai-agent-playground.git business
+```
+
+## 3. Deploy to latex-tools
+
+Use the docs SSH key explicitly. `ssh -F docs/ssh/config latex-tools` may fail to pass the key through the jump host; this explicit ProxyCommand is the known-good form from OpenClaw:
+
+```bash
+ssh \
+  -i /home/node/.openclaw/workspace/docs/ssh/id_rsa \
+  -o UserKnownHostsFile=/home/node/.openclaw/workspace/docs/ssh/known_hosts \
+  -o StrictHostKeyChecking=accept-new \
+  -o ProxyCommand="ssh -i /home/node/.openclaw/workspace/docs/ssh/id_rsa -o UserKnownHostsFile=/home/node/.openclaw/workspace/docs/ssh/known_hosts -o StrictHostKeyChecking=accept-new -W %h:%p root@82.156.115.203" \
+  root@107.174.178.57 \
+  'set -e; cd /opt/ai-agent-playground; git pull --ff-only; systemctl restart ai-agent-playground; for i in 1 2 3 4 5; do curl -fsS -m 10 http://127.0.0.1:8765/api/health && break || sleep 1; done; echo; git rev-parse --short=12 HEAD; systemctl is-active ai-agent-playground'
+```
+
+If git reports dubious ownership once on the server:
+
+```bash
+git config --global --add safe.directory /opt/ai-agent-playground
+```
+
+## 4. Public verification
+
+After deploy, verify both health/version and read-only agent contract:
+
+```bash
+python3 scripts/verify_deploy_health.py https://agent-playground.space <new-commit-prefix>
+python3 scripts/verify_public_agent_contract.py https://agent-playground.space <new-commit-prefix>
+```
+
+Expected health shape:
+
+```json
+{"ok": true, "url": "https://agent-playground.space/api/health", "commit": "<new commit>", "source": "git"}
+```
+
+## 5. Rollback
+
+If public verification fails after a deploy, rollback to the previous known-good commit.
+
+On latex-tools:
+
+```bash
+cd /opt/ai-agent-playground
+git log --oneline -5
+git reset --hard <previous-good-commit>
+systemctl restart ai-agent-playground
+curl -fsS -m 10 http://127.0.0.1:8765/api/health
+```
+
+Then verify publicly from the workspace:
+
+```bash
+python3 scripts/verify_deploy_health.py https://agent-playground.space <previous-good-prefix>
+python3 scripts/verify_public_agent_contract.py https://agent-playground.space <previous-good-prefix>
+```
+
+Only force-push/revert the remote branch after deciding whether the bad commit should be reverted in git history. Prefer a normal revert commit when possible:
+
+```bash
+git revert <bad-commit>
+git push origin business
+```
+
+## 6. Known operational notes
+
+- `agent-playground.space` is behind Cloudflare.
+- Python urllib with default User-Agent can be blocked by Cloudflare; verifier scripts set explicit User-Agent.
+- `/api/health` includes `version.commit`, so public deploy verification does not require SSH.
+- The nginx site symlink must exist: `/etc/nginx/sites-enabled/agent-playground.space -> /etc/nginx/sites-available/agent-playground.space`.
+- If service restart is immediately followed by `curl` too quickly, first local health check may briefly fail. Retry loop is expected.
