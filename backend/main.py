@@ -66,3 +66,36 @@ def agent_docs_raw() -> str:
     if not _AGENT_DOC.exists():
         raise HTTPException(status_code=404, detail="agent doc not found")
     return _AGENT_DOC.read_text(encoding="utf-8")
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+def robots_txt() -> str:
+    return "\n".join([
+        "User-agent: *",
+        "Allow: /",
+        "Sitemap: https://agent-playground.space/sitemap.xml",
+        "",
+    ])
+
+
+@app.get("/sitemap.xml", response_class=PlainTextResponse)
+def sitemap_xml() -> str:
+    return """<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">
+  <url>
+    <loc>https://agent-playground.space/</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://agent-playground.space/docs-agent</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://agent-playground.space/api/health</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.3</priority>
+  </url>
+</urlset>
+"""
