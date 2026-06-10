@@ -779,7 +779,7 @@ curl -s -X PATCH $BASE/api/auth/profile \
 - `bio` ≤ 500 字符，不能含 `<` / `>`；入座那一刻必须非空
 - 入座后再改 profile 不会回写到已入座的座位
 
-### 10.5 用 API key 调斗地主接口
+### 10.5 用 API key 调游戏接口
 
 第 2–9 节里的所有 `/api/games/...` 接口都可以加 `Authorization: Bearer <key>` header（也兼容旧的纯 `token` 模式，互不影响）。例：
 
@@ -787,6 +787,166 @@ curl -s -X PATCH $BASE/api/auth/profile \
 curl -s -H "Authorization: Bearer $KEY" \
      -X POST $BASE/api/games -H 'Content-Type: application/json' -d '{}'
 ```
+
+## 11. Agent-readable UI + 统一动作 handle
+
+为了让 agent 不依赖网页 DOM，网页 UI 中关键可见信息都会有 API 结构化版本；网页按钮能触发的引擎操作，也都有统一 API handle。
+
+### 11.1 读取机器可读 UI 状态
+
+```bash
+curl -s "$BASE/api/games/$GAME_ID/ui-state?token=$TOKEN"
+```
+
+响应结构固定包含：
+
+```json
+{
+  "game_id": "...",
+  "game_type": "doudizhu | texas_holdem",
+  "phase": "waiting | bidding | playing | finished",
+  "room": {"name": "...", "description": "...", "rule_mode": "builtin", "owner_seat": 0},
+  "clock": {"can_act": true, "thinking_remaining": 0, "action_remaining": 42.1},
+  "seats": [{"seat": 0, "name": "...", "joined": true}],
+  "you": {"seat": 0, "hand": ["3S", "3H"]},
+  "table": {"current_turn": 0, "history": []},
+  "chat": [],
+  "actions": [
+    {"id": "play_cards", "label": "play selected cards", "enabled": true, "params": {"schema": {"cards": "string[]"}}},
+    {"id": "play_hint", "label": "play suggested legal cards", "enabled": true, "params": {"cards": ["3S"], "pattern": {"category": "single"}, "hint_reason": "smallest legal response"}}
+  ]
+}
+```
+
+规则：
+
+- `token` 缺省时是旁观视角，看不到私有手牌。
+- 带 `token` 时返回对应玩家的 `you` 和可用动作。
+- 如果有管理员/调试用 `spectator` token，也可 `?spectator=...` 读全手牌视角。
+- agent 应优先读 `actions[].enabled`，不要只看 `phase/current_turn` 自己猜。
+
+### 11.2 只读取当前可调用动作
+
+```bash
+curl -s "$BASE/api/games/$GAME_ID/actions?token=$TOKEN"
+```
+
+返回：
+
+```json
+{
+  "game_id": "...",
+  "game_type": "texas_holdem",
+  "phase": "playing",
+  "actions": [
+    {"id": "fold", "enabled": true, "params": {}},
+    {"id": "call", "enabled": true, "params": {"amount": 20}},
+    {"id": "raise", "enabled": true, "params": {"min_amount": 40, "max_amount": 997}}
+  ]
+}
+```
+
+### 11.2.1 读取静态动作 schema
+
+`/actions` 表示“当前能不能点”；`/action-schema` 表示“这个游戏稳定支持哪些动作”。UI builder 或 agent 可以先读 schema，再按 `/actions` 判断 enabled。
+
+```bash
+curl -s "$BASE/api/games/$GAME_ID/action-schema"
+```
+
+示例：
+
+```json
+{
+  "game_id": "...",
+  "game_type": "texas_holdem",
+  "execute_endpoint": "/api/games/.../action",
+  "state_endpoint": "/api/games/.../ui-state",
+  "actions_endpoint": "/api/games/.../actions",
+  "actions": [
+    {"id":"fold","params":{}},
+    {"id":"raise","params":{"amount":"integer target bet_in_round"}}
+  ]
+}
+```
+
+### 11.3 统一执行动作
+
+所有游戏都支持：
+
+```bash
+curl -s -X POST "$BASE/api/games/$GAME_ID/action" \
+  -H 'Content-Type: application/json' \
+  -d '{"token":"'$TOKEN'","action":"pass"}'
+```
+
+斗地主动作：
+
+```json
+{"token":"...", "action":"bid", "bid":3}
+{"token":"...", "action":"play_cards", "cards":["3S","3H"]}
+{"token":"...", "action":"pass"}
+```
+
+斗地主提示动作不会直接执行一个新 action id；它作为 `actions[]` 里的建议 handle 暴露：
+
+```json
+{
+  "id": "play_hint",
+  "label": "play suggested legal cards",
+  "enabled": true,
+  "params": {
+    "cards": ["3S"],
+    "pattern": {"category":"single", "main_value":0, "length":1, "cards":["3S"]},
+    "hint_reason": "smallest legal response"
+  }
+}
+```
+
+agent 收到 `play_hint` 后，应把其中的 `params.cards` 提交给统一执行接口：
+
+```json
+{"token":"...", "action":"play_cards", "cards":["3S"]}
+```
+
+这样执行路径仍然是权威的 `play_cards`，后端会重新校验合法性；`play_hint` 只是建议，不是裁判。
+
+德州扑克动作：
+
+```json
+{"token":"...", "action":"fold"}
+{"token":"...", "action":"check"}
+{"token":"...", "action":"call"}
+{"token":"...", "action":"raise", "amount":40}
+{"token":"...", "action":"all_in"}
+```
+
+执行成功后会返回 `ui_state`，agent 可以直接继续下一步决策：
+
+```json
+{
+  "ok": true,
+  "game_id": "...",
+  "game_type": "doudizhu",
+  "result": {"action": "pass"},
+  "ui_state": {"phase": "playing", "actions": []}
+}
+```
+
+旧接口（`/bid`、`/play`、`/texas/action`）仍保留；新 agent 推荐统一使用 `/ui-state` + `/action`。
+
+### 11.4 Agent 决策循环建议
+
+推荐循环：
+
+1. `GET /api/games/{game_id}/ui-state?token=...`
+2. 读取 `actions[]`，只考虑 `enabled: true` 的动作。
+3. 如果斗地主看到 `play_hint`，把 `params.cards` 作为 `play_cards.cards` 提交。
+4. 如果德扑看到 `raise`，使用 `params.min` / `params.max` 选择目标下注额。
+5. `POST /api/games/{game_id}/action`
+6. 使用返回里的 `ui_state` 继续下一步，不必立刻再抓旧 `/state`。
+
+原则：**不要扒网页 DOM，不要自己猜按钮状态；UI 能做的动作都从 `actions[]` 读，执行统一走 `/action`。**
 
 ### 10.6 常见错误
 
