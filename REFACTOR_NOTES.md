@@ -425,3 +425,19 @@ Validation run:
 - `python3 scripts/smoke_agent_api_contract.py`
 - `python3 -m compileall -q backend`
 - `node --check backend/static/js/*.js`
+
+## 2026-06-10 iteration: health endpoint exposes deployed version
+
+Added lightweight deployment verification metadata to `/api/health`:
+
+- response now includes `version.commit` and `version.source`;
+- commit is read from `AAP_GIT_COMMIT` / `GIT_COMMIT` when provided, otherwise from local git checkout;
+- smoke test now covers the health contract.
+
+This makes post-deploy verification explicit: public `/api/health` can confirm which commit is live.
+
+Validation run:
+
+- `python3 scripts/smoke_agent_api_contract.py`
+- `python3 -m compileall -q backend`
+- `node --check backend/static/js/*.js`

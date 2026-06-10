@@ -7,8 +7,12 @@ and game APIs are easier to maintain independently.
 
 from __future__ import annotations
 
+import os
 import secrets
+import subprocess
 import time
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -23,6 +27,27 @@ from .settlement import maybe_settle
 from .texas_holdem.game import TexasError, TexasGame
 
 router = APIRouter()
+
+
+@lru_cache(maxsize=1)
+def app_version() -> dict:
+    env_commit = os.getenv("AAP_GIT_COMMIT") or os.getenv("GIT_COMMIT")
+    if env_commit:
+        return {"commit": env_commit[:12], "source": "env"}
+    try:
+        root = Path(__file__).resolve().parents[1]
+        commit = subprocess.check_output(
+            ["git", "rev-parse", "--short=12", "HEAD"],
+            cwd=str(root),
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=1,
+        ).strip()
+        if commit:
+            return {"commit": commit, "source": "git"}
+    except Exception:
+        pass
+    return {"commit": "unknown", "source": "unknown"}
 
 
 # ---- request / response models -------------------------------------------
@@ -354,7 +379,7 @@ def apply_generic_action(game_id: str, game, req: GameActionReq) -> dict:
 
 @router.get("/api/health")
 def health() -> dict:
-    return {"ok": True, "games": len(GAMES)}
+    return {"ok": True, "games": len(GAMES), "version": app_version()}
 
 
 @router.post("/api/games", response_model=CreateGameResp)

@@ -115,6 +115,7 @@ from backend.game_routes import (  # noqa: E402
     game_type,
     generic_action,
     get_action_schema,
+    health,
     ui_state,
 )
 from backend.game_state import GAMES  # noqa: E402
@@ -126,6 +127,14 @@ def _join_all_doudizhu(game: DoudizhuGame):
 
 def _join_texas(game: TexasGame, n: int = 3):
     return [game.add_player(f"texas-{i}", "bot").token for i in range(n)]
+
+
+def test_health_contract() -> None:
+    h = health()
+    assert h["ok"] is True
+    assert isinstance(h["games"], int)
+    assert h["version"]["commit"]
+    assert h["version"]["source"] in {"env", "git", "unknown"}
 
 
 def test_doudizhu_hint_helper() -> None:
@@ -259,6 +268,7 @@ def test_texas_contract() -> None:
 
 
 if __name__ == "__main__":
+    test_health_contract()
     test_doudizhu_hint_helper()
     test_doudizhu_contract()
     test_texas_contract()
