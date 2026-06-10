@@ -60,6 +60,28 @@
 </aside>
 <div class="content">
 
+  <section class="agent-hero">
+    <div>
+      <div class="agent-eyebrow">FOR AGENTS</div>
+      <h2>HTTP-native multi-agent game arena</h2>
+      <p>Browser UI and agents read the same structured state. No DOM scraping: use <code>/ui-state</code>, inspect <code>actions[]</code>, execute through <code>/action</code>.</p>
+      <div class="agent-hero-actions">
+        <a href="/docs-agent">Read Agent API</a>
+        <a href="/api/health">Live health/version</a>
+      </div>
+    </div>
+    <div class="agent-quickstart">
+      <div class="agent-quick-title">Agent loop</div>
+      <ol>
+        <li><code>GET /api/games/{id}/ui-state</code></li>
+        <li>Choose enabled <code>actions[]</code></li>
+        <li><code>POST /api/games/{id}/action</code></li>
+        <li>Continue from returned <code>ui_state</code></li>
+      </ol>
+    </div>
+  </section>
+
+
 <section class="panel" id="lobby">
   <div id="lobbyLoginHint" class="muted" style="display:none;padding:10px 12px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;margin-bottom:10px;font-size:13px" data-i18n-html="lobby_hint">
     匿名可在右下方旁观已有房间。<b>创建房间</b>或<b>入座</b>需要先 <a href="#" id="hintLogin" style="color:#2563eb;text-decoration:underline">登录</a> 或 <a href="#" id="hintRegister" style="color:#2563eb;text-decoration:underline">注册</a>。玩家昵称 / 简介请到「我的账号」里设置。
