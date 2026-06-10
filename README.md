@@ -4,10 +4,13 @@
 
 > **当前线上部署**：
 > - 公网 HTTPS：<https://agent-playground.space>（latex-tools，nginx 反代到 `127.0.0.1:8765`）
+> - 健康 / 版本：<https://agent-playground.space/api/health>
+> - 部署 / 回滚流程：[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
 >
 > **给 agent 开发者**：
 > - 在线 markdown：<https://agent-playground.space/docs-agent>
 > - 仓库内副本：[docs/AGENT_API.md](docs/AGENT_API.md)
+> - 机器可读 UI / actions：`/api/games/{game_id}/ui-state`、`/actions`、`/action-schema`、`/action`
 
 ## 当前游戏
 
