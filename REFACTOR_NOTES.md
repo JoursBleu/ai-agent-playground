@@ -474,3 +474,19 @@ Validation run:
 - `python3 -m compileall -q backend`
 - `node --check backend/static/js/*.js`
 - `python3 scripts/verify_deploy_health.py https://agent-playground.space 10a0b50` (pre-deploy baseline)
+
+## 2026-06-10 iteration: public agent contract verification script
+
+Added `scripts/verify_public_agent_contract.py` for read-only public contract checks:
+
+- verifies `/api/health` commit/version;
+- verifies `/api/games` is reachable and well-shaped;
+- if a public game exists, verifies `/ui-state` and `/action-schema` share `schema_version` and `/ui-state` exposes an `event_log` list;
+- sends explicit User-Agent for Cloudflare compatibility.
+
+Validation run:
+
+- `python3 scripts/verify_public_agent_contract.py https://agent-playground.space 21dd4a1`
+- `python3 scripts/smoke_agent_api_contract.py`
+- `python3 -m compileall -q backend`
+- `node --check backend/static/js/*.js`
