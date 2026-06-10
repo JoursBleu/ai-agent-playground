@@ -27,6 +27,7 @@ from .settlement import maybe_settle
 from .texas_holdem.game import TexasError, TexasGame
 
 router = APIRouter()
+AGENT_API_SCHEMA_VERSION = "2026-06-10.1"
 
 
 @lru_cache(maxsize=1)
@@ -279,6 +280,7 @@ def ui_state(game, state: dict, token: Optional[str]) -> dict:
     """Machine-readable view model: every important visual region is structured."""
     gt = game_type(game)
     common = {
+        "schema_version": AGENT_API_SCHEMA_VERSION,
         "game_id": state.get("game_id"),
         "game_type": gt,
         "phase": state.get("phase"),
@@ -543,6 +545,7 @@ def get_action_schema(game_id: str) -> dict:
     game = get_game_or_404(game_id)
     gt = game_type(game)
     common = {
+        "schema_version": AGENT_API_SCHEMA_VERSION,
         "game_id": game_id,
         "game_type": gt,
         "execute_endpoint": f"/api/games/{game_id}/action",

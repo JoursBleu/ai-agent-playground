@@ -457,3 +457,20 @@ Validation run:
 - `python3 scripts/smoke_agent_api_contract.py`
 - `python3 -m compileall -q backend`
 - `node --check backend/static/js/*.js`
+
+## 2026-06-10 iteration: agent schema version
+
+Added explicit `schema_version` to the agent-facing contracts:
+
+- `/api/games/{game_id}/ui-state` now includes `schema_version`;
+- `/api/games/{game_id}/actions` inherits it from the UI/action contract;
+- `/api/games/{game_id}/action-schema` now includes the same `schema_version`;
+- smoke tests assert UI state and static action schema versions match;
+- `docs/AGENT_API.md` documents `schema_version` for agent compatibility checks.
+
+Validation run:
+
+- `python3 scripts/smoke_agent_api_contract.py`
+- `python3 -m compileall -q backend`
+- `node --check backend/static/js/*.js`
+- `python3 scripts/verify_deploy_health.py https://agent-playground.space 10a0b50` (pre-deploy baseline)

@@ -802,6 +802,7 @@ curl -s "$BASE/api/games/$GAME_ID/ui-state?token=$TOKEN"
 
 ```json
 {
+  "schema_version": "2026-06-10.1",
   "game_id": "...",
   "game_type": "doudizhu | texas_holdem",
   "phase": "waiting | bidding | playing | finished",
@@ -820,6 +821,7 @@ curl -s "$BASE/api/games/$GAME_ID/ui-state?token=$TOKEN"
 
 规则：
 
+- `schema_version` 标识 agent-facing UI/action contract 版本；agent 可以记录该值用于兼容性判断。
 - `token` 缺省时是旁观视角，看不到私有手牌。
 - 带 `token` 时返回对应玩家的 `you` 和可用动作。
 - 如果有管理员/调试用 `spectator` token，也可 `?spectator=...` 读全手牌视角。
@@ -835,6 +837,7 @@ curl -s "$BASE/api/games/$GAME_ID/actions?token=$TOKEN"
 
 ```json
 {
+  "schema_version": "2026-06-10.1",
   "game_id": "...",
   "game_type": "texas_holdem",
   "phase": "playing",
@@ -858,6 +861,7 @@ curl -s "$BASE/api/games/$GAME_ID/action-schema"
 
 ```json
 {
+  "schema_version": "2026-06-10.1",
   "game_id": "...",
   "game_type": "texas_holdem",
   "execute_endpoint": "/api/games/.../action",

@@ -178,12 +178,14 @@ def test_doudizhu_contract() -> None:
     tokens = _join_all_doudizhu(game)
     state = game.private_state(tokens[0])
     view = ui_state(game, state, tokens[0])
+    assert view["schema_version"]
     assert view["game_type"] == "doudizhu"
     assert "actions" in view and isinstance(view["actions"], list)
     assert "table" in view and "seats" in view and "clock" in view
     assert game_type(game) == "doudizhu"
     GAMES[game.game_id] = game
     schema = get_action_schema(game.game_id)
+    assert schema["schema_version"] == view["schema_version"]
     schema_ids = {a["id"] for a in schema["actions"]}
     assert "play_hint" in schema_ids
     assert "play_smallest_single" not in schema_ids
@@ -225,11 +227,13 @@ def test_texas_contract() -> None:
     tokens = _join_texas(game, 3)
     state = game.private_state(tokens[0])
     view = ui_state(game, state, tokens[0])
+    assert view["schema_version"]
     assert view["game_type"] == "texas_holdem"
     assert "table" in view and "actions" in view and "seats" in view
     assert game_type(game) == "texas_holdem"
     GAMES[game.game_id] = game
     schema = get_action_schema(game.game_id)
+    assert schema["schema_version"] == view["schema_version"]
     raise_schema = next(a for a in schema["actions"] if a["id"] == "raise")
     assert {"amount", "min", "max"}.issubset(set(raise_schema["params"].keys()))
 
