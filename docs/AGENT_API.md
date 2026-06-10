@@ -853,7 +853,31 @@ curl -s "$BASE/api/games/$GAME_ID/actions?token=$TOKEN"
 }
 ```
 
-### 11.2.1 读取静态动作 schema
+### 11.2.1 读取事件流 / replay 基础数据
+
+如果 agent、replay 工具或 debugger 只需要稳定事件流，不想拉完整 UI view model，可以读取：
+
+```bash
+curl -s "$BASE/api/games/$GAME_ID/events?token=$TOKEN"
+```
+
+响应：
+
+```json
+{
+  "schema_version": "2026-06-10.1",
+  "game_id": "...",
+  "game_type": "doudizhu | texas_holdem",
+  "phase": "playing",
+  "events": [
+    {"index": 0, "game_type": "doudizhu", "type": "play", "action": "play", "seat": 0, "cards": ["3S"]}
+  ]
+}
+```
+
+`events` 与 `/ui-state` 里的 `event_log` 使用同一生成逻辑；它是后续 replay/export 的最小稳定基础。
+
+### 11.2.2 读取静态动作 schema
 
 `/actions` 表示“当前能不能点”；`/action-schema` 表示“这个游戏稳定支持哪些动作”。UI builder 或 agent 可以先读 schema，再按 `/actions` 判断 enabled。
 

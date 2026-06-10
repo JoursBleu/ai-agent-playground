@@ -115,6 +115,7 @@ from backend.game_routes import (  # noqa: E402
     game_type,
     generic_action,
     get_action_schema,
+    get_events,
     health,
     ui_state,
 )
@@ -185,6 +186,9 @@ def test_doudizhu_contract() -> None:
     assert "table" in view and "seats" in view and "clock" in view
     assert game_type(game) == "doudizhu"
     GAMES[game.game_id] = game
+    events = get_events(game.game_id, token=tokens[0])
+    assert events["schema_version"] == view["schema_version"]
+    assert events["events"] == view["event_log"]
     schema = get_action_schema(game.game_id)
     assert schema["schema_version"] == view["schema_version"]
     schema_ids = {a["id"] for a in schema["actions"]}
@@ -235,6 +239,9 @@ def test_texas_contract() -> None:
     assert "event_log" in view and isinstance(view["event_log"], list)
     assert game_type(game) == "texas_holdem"
     GAMES[game.game_id] = game
+    events = get_events(game.game_id, token=tokens[0])
+    assert events["schema_version"] == view["schema_version"]
+    assert events["events"] == view["event_log"]
     schema = get_action_schema(game.game_id)
     assert schema["schema_version"] == view["schema_version"]
     raise_schema = next(a for a in schema["actions"] if a["id"] == "raise")

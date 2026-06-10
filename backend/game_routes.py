@@ -554,6 +554,25 @@ def get_actions(game_id: str, token: Optional[str] = None) -> dict:
     }
 
 
+@router.get("/api/games/{game_id}/events")
+def get_events(game_id: str, token: Optional[str] = None, spectator: Optional[str] = None) -> dict:
+    """Stable read-only event stream for replay/debug/agent memory.
+
+    This mirrors `ui_state.event_log` but gives agents and tooling a smaller
+    endpoint when they only need the chronological event graph.
+    """
+    game = get_game_or_404(game_id)
+    maybe_settle(game_id, game)
+    state = _state_for_reader(game, token, spectator)
+    return {
+        "schema_version": AGENT_API_SCHEMA_VERSION,
+        "game_id": game_id,
+        "game_type": game_type(game),
+        "phase": state.get("phase"),
+        "events": _event_log(game_type(game), state),
+    }
+
+
 @router.get("/api/games/{game_id}/action-schema")
 def get_action_schema(game_id: str) -> dict:
     """Static action schema for UI builders and agents.
