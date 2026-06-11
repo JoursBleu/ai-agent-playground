@@ -806,6 +806,7 @@ curl -s "$BASE/api/capabilities"
 - `schema_version`
 - 支持的 `games`
 - 端点模板：`ui_state`、`actions`、`action_schema`、`events`、`execute_action`
+- 维护入口：`maintenance.public_verify_command`、`maintenance.deployment_runbook`
 - 约定原则：不要扒 DOM；状态读 `/ui-state`；动作走 `/action`；事件流读 `/events`
 
 ### 11.1 读取机器可读 UI 状态

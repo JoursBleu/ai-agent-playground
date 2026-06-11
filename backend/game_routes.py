@@ -423,6 +423,10 @@ def capabilities() -> dict:
             "execute_action": "/api/games/{game_id}/action",
             "agent_docs": "/docs-agent",
         },
+        "maintenance": {
+            "public_verify_command": "python3 scripts/verify_public_deploy.py https://agent-playground.space <commit-prefix>",
+            "deployment_runbook": "docs/DEPLOYMENT.md",
+        },
         "principles": [
             "Do not scrape DOM for game state.",
             "Read /ui-state and /actions for current state and handles.",

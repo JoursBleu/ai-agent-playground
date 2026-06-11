@@ -88,6 +88,9 @@ def main() -> int:
     for key in ["ui_state", "actions", "action_schema", "events", "execute_action"]:
         if key not in endpoints:
             raise SystemExit(f"capabilities missing endpoint {key!r}: {caps!r}")
+    maintenance = caps.get("maintenance") or {}
+    if "verify_public_deploy.py" not in str(maintenance.get("public_verify_command") or ""):
+        raise SystemExit(f"capabilities missing public verify command: {caps!r}")
 
     games_resp = get_json(f"{base}/api/games")
     games = games_resp.get("games") if isinstance(games_resp, dict) else None
@@ -112,7 +115,7 @@ def main() -> int:
         "commit": commit,
         "checks": {
             "health": {"ok": True, "commit": commit, "source": version.get("source")},
-            "capabilities": {"ok": True, "schema_version": caps.get("schema_version"), "endpoints": sorted(endpoints)},
+            "capabilities": {"ok": True, "schema_version": caps.get("schema_version"), "endpoints": sorted(endpoints), "maintenance": sorted(maintenance)},
             "games": {"ok": True, "count": len(games)},
             "room_contract": room_contract,
         },
