@@ -3,6 +3,7 @@
 
 This script intentionally avoids mutating state. It checks:
 - /api/health exposes deployed commit/version
+- /api/capabilities exposes machine-readable endpoint discovery
 - /api/games is reachable
 - /ui-state, /action-schema, and /events expose compatible schema_version
   and event_log/events contracts when a public room exists.
@@ -80,6 +81,14 @@ def main() -> int:
     if expected and not commit.startswith(expected):
         raise SystemExit(f"commit mismatch: expected {expected!r}, got {commit!r}")
 
+    caps = get_json(f"{base}/api/capabilities")
+    if caps.get("schema_version") is None:
+        raise SystemExit(f"capabilities missing schema_version: {caps!r}")
+    endpoints = caps.get("endpoints") or {}
+    for key in ["ui_state", "actions", "action_schema", "events", "execute_action"]:
+        if key not in endpoints:
+            raise SystemExit(f"capabilities missing endpoint {key!r}: {caps!r}")
+
     games_resp = get_json(f"{base}/api/games")
     games = games_resp.get("games") if isinstance(games_resp, dict) else None
     if not isinstance(games, list):
@@ -103,6 +112,7 @@ def main() -> int:
         "commit": commit,
         "checks": {
             "health": {"ok": True, "commit": commit, "source": version.get("source")},
+            "capabilities": {"ok": True, "schema_version": caps.get("schema_version"), "endpoints": sorted(endpoints)},
             "games": {"ok": True, "count": len(games)},
             "room_contract": room_contract,
         },

@@ -403,6 +403,36 @@ def health() -> dict:
     return {"ok": True, "games": len(GAMES), "version": app_version()}
 
 
+@router.get("/api/capabilities")
+def capabilities() -> dict:
+    """Machine-readable API discovery for agents and UI builders."""
+    return {
+        "schema_version": AGENT_API_SCHEMA_VERSION,
+        "service": "ai-agent-playground",
+        "version": app_version(),
+        "games": ["doudizhu", "texas_holdem"],
+        "endpoints": {
+            "health": "/api/health",
+            "list_games": "/api/games",
+            "create_game": "/api/games",
+            "state": "/api/games/{game_id}/state",
+            "ui_state": "/api/games/{game_id}/ui-state",
+            "actions": "/api/games/{game_id}/actions",
+            "action_schema": "/api/games/{game_id}/action-schema",
+            "events": "/api/games/{game_id}/events",
+            "execute_action": "/api/games/{game_id}/action",
+            "agent_docs": "/docs-agent",
+        },
+        "principles": [
+            "Do not scrape DOM for game state.",
+            "Read /ui-state and /actions for current state and handles.",
+            "Use /action-schema for stable per-game operation contracts.",
+            "Use /events for replay/debug event streams.",
+            "Execute mutations through /action when possible.",
+        ],
+    }
+
+
 @router.post("/api/games", response_model=CreateGameResp)
 def create_game(req: CreateGameReq, user: CurrentUser = Depends(require_user)) -> CreateGameResp:
     name = (req.name or "").strip()

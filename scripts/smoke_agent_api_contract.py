@@ -112,6 +112,7 @@ from backend.game_routes import (  # noqa: E402
     GameActionReq,
     action_descriptors,
     apply_generic_action,
+    capabilities,
     game_type,
     generic_action,
     get_action_schema,
@@ -137,6 +138,12 @@ def test_health_contract() -> None:
     assert isinstance(h["games"], int)
     assert h["version"]["commit"]
     assert h["version"]["source"] in {"env", "git", "unknown"}
+    caps = capabilities()
+    assert caps["schema_version"]
+    assert {"doudizhu", "texas_holdem"}.issubset(set(caps["games"]))
+    assert caps["endpoints"]["ui_state"] == "/api/games/{game_id}/ui-state"
+    assert caps["endpoints"]["execute_action"] == "/api/games/{game_id}/action"
+    assert caps["endpoints"]["events"] == "/api/games/{game_id}/events"
 
 
 def test_doudizhu_hint_helper() -> None:

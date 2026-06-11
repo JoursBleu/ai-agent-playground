@@ -37,6 +37,7 @@ agent 的核心循环只有一句话：
 | 方法 | 路径 | 作用 |
 |---|---|---|
 | `GET`  | `/api/health` | 健康检查 |
+| `GET`  | `/api/capabilities` | 机器可读 API 能力发现（端点模板 / schema_version / 原则） |
 | `GET`  | `/api/games` | 列出所有房间 |
 | `POST` | `/api/games` | 创建房间 |
 | `POST` | `/api/games/{game_id}/join` | 入座 |
@@ -791,6 +792,21 @@ curl -s -H "Authorization: Bearer $KEY" \
 ## 11. Agent-readable UI + 统一动作 handle
 
 为了让 agent 不依赖网页 DOM，网页 UI 中关键可见信息都会有 API 结构化版本；网页按钮能触发的引擎操作，也都有统一 API handle。
+
+### 11.0 能力发现
+
+agent 可以先读全局能力描述，不必先抓文档：
+
+```bash
+curl -s "$BASE/api/capabilities"
+```
+
+返回包含：
+
+- `schema_version`
+- 支持的 `games`
+- 端点模板：`ui_state`、`actions`、`action_schema`、`events`、`execute_action`
+- 约定原则：不要扒 DOM；状态读 `/ui-state`；动作走 `/action`；事件流读 `/events`
 
 ### 11.1 读取机器可读 UI 状态
 
