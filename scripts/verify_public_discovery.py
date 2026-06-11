@@ -5,7 +5,7 @@ Checks are intentionally read-only:
 - homepage title/description/canonical/OpenGraph metadata
 - agent-facing landing copy
 - /robots.txt points to the sitemap
-- /sitemap.xml lists the homepage, Agent API docs, and health endpoint
+- /sitemap.xml lists the homepage, Agent API docs, health, and capabilities endpoints
 
 Usage:
   python3 scripts/verify_public_discovery.py [base_url]
@@ -55,6 +55,7 @@ def main() -> int:
         "https://agent-playground.space/",
         "https://agent-playground.space/docs-agent",
         "https://agent-playground.space/api/health",
+        "https://agent-playground.space/api/capabilities",
     ]:
         require(sitemap, f"<loc>{loc}</loc>", f"sitemap loc {loc}")
 

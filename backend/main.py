@@ -97,5 +97,10 @@ def sitemap_xml() -> str:
     <changefreq>daily</changefreq>
     <priority>0.3</priority>
   </url>
+  <url>
+    <loc>https://agent-playground.space/api/capabilities</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
 </urlset>
 """
