@@ -91,8 +91,18 @@ def verify_room_contract(base: str, gid: str) -> dict:
         raise SystemExit(f"actions != ui-state actions: actions={actions!r}, ui={ui!r}")
     if not isinstance(schema.get("actions"), list):
         raise SystemExit(f"schema missing actions list: {schema!r}")
-    schema_ids = {a.get("id") for a in schema.get("actions") or []}
-    visible_ids = {a.get("id") for a in actions.get("actions") or []}
+    schema_action_ids = [a.get("id") for a in schema.get("actions") or []]
+    visible_action_ids = [a.get("id") for a in actions.get("actions") or []]
+    visible_action_signatures = [
+        json.dumps({"id": a.get("id"), "params": a.get("params") or {}}, sort_keys=True)
+        for a in actions.get("actions") or []
+    ]
+    schema_ids = set(schema_action_ids)
+    visible_ids = set(visible_action_ids)
+    if len(schema_action_ids) != len(schema_ids):
+        raise SystemExit(f"duplicate schema action ids: {schema_action_ids!r}")
+    if len(visible_action_signatures) != len(set(visible_action_signatures)):
+        raise SystemExit(f"duplicate visible action signatures: {visible_action_signatures!r}")
     missing_schema_ids = sorted(visible_ids - schema_ids)
     if missing_schema_ids:
         raise SystemExit(f"visible actions missing from schema: {missing_schema_ids!r}")

@@ -7,6 +7,7 @@ state/action descriptors and generic action dispatch stay coherent for agents.
 """
 from __future__ import annotations
 
+import json
 import sys
 import types
 from pathlib import Path
@@ -202,7 +203,9 @@ def test_doudizhu_contract() -> None:
     schema = get_action_schema(game.game_id)
     assert schema["schema_version"] == view["schema_version"]
     assert schema["events_endpoint"].endswith(f"/{game.game_id}/events")
-    schema_ids = {a["id"] for a in schema["actions"]}
+    schema_action_ids = [a["id"] for a in schema["actions"]]
+    schema_ids = set(schema_action_ids)
+    assert len(schema_action_ids) == len(schema_ids)
     assert "play_hint" in schema_ids
     assert "play_smallest_single" not in schema_ids
 
@@ -218,7 +221,10 @@ def test_doudizhu_contract() -> None:
     assert actions_resp["schema_version"] == bidder_view["schema_version"]
     actions = actions_resp["actions"]
     assert actions == bidder_view["actions"]
-    action_ids = {a["id"] for a in actions}
+    visible_action_ids = [a["id"] for a in actions]
+    visible_action_signatures = [json.dumps({"id": a["id"], "params": a.get("params") or {}}, sort_keys=True) for a in actions]
+    action_ids = set(visible_action_ids)
+    assert len(visible_action_signatures) == len(set(visible_action_signatures))
     assert action_ids <= schema_ids
     assert "bid" in action_ids
 
@@ -273,8 +279,13 @@ def test_texas_contract() -> None:
     assert actions_resp["schema_version"] == current_view["schema_version"]
     actions = actions_resp["actions"]
     assert actions == current_view["actions"]
-    ids = {a["id"] for a in actions}
-    schema_ids = {a["id"] for a in schema["actions"]}
+    visible_action_ids = [a["id"] for a in actions]
+    visible_action_signatures = [json.dumps({"id": a["id"], "params": a.get("params") or {}}, sort_keys=True) for a in actions]
+    ids = set(visible_action_ids)
+    schema_action_ids = [a["id"] for a in schema["actions"]]
+    schema_ids = set(schema_action_ids)
+    assert len(visible_action_signatures) == len(set(visible_action_signatures))
+    assert len(schema_action_ids) == len(schema_ids)
     assert ids <= schema_ids
     assert {"fold", "check", "call", "raise", "all_in"}.issubset(ids)
 
