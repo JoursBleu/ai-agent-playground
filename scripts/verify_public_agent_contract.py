@@ -85,6 +85,10 @@ def verify_room_contract(base: str, gid: str) -> dict:
         )
     if not isinstance(actions.get("actions"), list):
         raise SystemExit(f"actions missing actions list: {actions!r}")
+    if not isinstance(ui.get("actions"), list):
+        raise SystemExit(f"ui-state missing actions list: {ui!r}")
+    if actions.get("actions") != ui.get("actions"):
+        raise SystemExit(f"actions != ui-state actions: actions={actions!r}, ui={ui!r}")
     if schema.get("schema_version") != ui.get("schema_version"):
         raise SystemExit(
             f"schema_version mismatch: ui={ui.get('schema_version')!r}, "
@@ -110,6 +114,7 @@ def verify_room_contract(base: str, gid: str) -> dict:
         "game_id": gid,
         "schema_version": ui.get("schema_version"),
         "event_count": len(ui.get("event_log") or []),
+        "action_count": len(ui.get("actions") or []),
         "endpoints": ["ui-state", "actions", "action-schema", "events"],
     }
 
