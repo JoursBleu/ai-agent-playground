@@ -16,7 +16,6 @@ from __future__ import annotations
 import json
 import sys
 import urllib.request
-from urllib.error import HTTPError
 
 UA = "OpenClaw-Agent-Contract-Verify/1.0"
 
@@ -25,6 +24,41 @@ def get_json(url: str) -> dict:
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=20) as resp:
         return json.loads(resp.read().decode("utf-8"))
+
+
+def verify_room_contract(base: str, gid: str) -> dict:
+    ui = get_json(f"{base}/api/games/{gid}/ui-state")
+    schema = get_json(f"{base}/api/games/{gid}/action-schema")
+    events = get_json(f"{base}/api/games/{gid}/events")
+    if not ui.get("schema_version"):
+        raise SystemExit(f"ui-state missing schema_version: {ui!r}")
+    if schema.get("schema_version") != ui.get("schema_version"):
+        raise SystemExit(
+            f"schema_version mismatch: ui={ui.get('schema_version')!r}, "
+            f"schema={schema.get('schema_version')!r}"
+        )
+    if events.get("schema_version") != ui.get("schema_version"):
+        raise SystemExit(
+            f"events schema_version mismatch: ui={ui.get('schema_version')!r}, "
+            f"events={events.get('schema_version')!r}"
+        )
+    if "event_log" not in ui or not isinstance(ui.get("event_log"), list):
+        raise SystemExit(f"ui-state missing event_log list: {ui!r}")
+    if events.get("events") != ui.get("event_log"):
+        raise SystemExit(f"events != ui-state event_log: events={events!r}, ui={ui!r}")
+    expected_events_endpoint = f"/api/games/{gid}/events"
+    if schema.get("events_endpoint") != expected_events_endpoint:
+        raise SystemExit(
+            f"bad events_endpoint: expected {expected_events_endpoint!r}, "
+            f"got {schema.get('events_endpoint')!r}"
+        )
+    return {
+        "covered": True,
+        "game_id": gid,
+        "schema_version": ui.get("schema_version"),
+        "event_count": len(ui.get("event_log") or []),
+        "endpoints": ["ui-state", "action-schema", "events"],
+    }
 
 
 def main() -> int:
@@ -43,37 +77,31 @@ def main() -> int:
     if not isinstance(games, list):
         raise SystemExit(f"bad games response: {games_resp!r}")
 
-    checked_game = None
-    skipped_contract_reason = "no public games"
+    room_contract = {
+        "covered": False,
+        "game_id": None,
+        "skipped_reason": "no public games",
+    }
     if games:
         gid = games[0].get("game_id") or games[0].get("id")
-        if gid:
-            ui = get_json(f"{base}/api/games/{gid}/ui-state")
-            schema = get_json(f"{base}/api/games/{gid}/action-schema")
-            events = get_json(f"{base}/api/games/{gid}/events")
-            if not ui.get("schema_version"):
-                raise SystemExit(f"ui-state missing schema_version: {ui!r}")
-            if schema.get("schema_version") != ui.get("schema_version"):
-                raise SystemExit(f"schema_version mismatch: ui={ui.get('schema_version')!r}, schema={schema.get('schema_version')!r}")
-            if events.get("schema_version") != ui.get("schema_version"):
-                raise SystemExit(f"events schema_version mismatch: ui={ui.get('schema_version')!r}, events={events.get('schema_version')!r}")
-            if "event_log" not in ui or not isinstance(ui.get("event_log"), list):
-                raise SystemExit(f"ui-state missing event_log list: {ui!r}")
-            if events.get("events") != ui.get("event_log"):
-                raise SystemExit(f"events != ui-state event_log: events={events!r}, ui={ui!r}")
-            expected_events_endpoint = f"/api/games/{gid}/events"
-            if schema.get("events_endpoint") != expected_events_endpoint:
-                raise SystemExit(f"bad events_endpoint: expected {expected_events_endpoint!r}, got {schema.get('events_endpoint')!r}")
-            checked_game = gid
-            skipped_contract_reason = None
+        if not gid:
+            room_contract["skipped_reason"] = "first public game missing id"
+        else:
+            room_contract = verify_room_contract(base, gid)
 
     print(json.dumps({
         "ok": True,
         "base": base,
         "commit": commit,
+        "checks": {
+            "health": {"ok": True, "commit": commit, "source": version.get("source")},
+            "games": {"ok": True, "count": len(games)},
+            "room_contract": room_contract,
+        },
+        # Backward-compatible summary fields for humans/scripts that grep output.
         "games_count": len(games),
-        "checked_game": checked_game,
-        "skipped_contract_reason": skipped_contract_reason,
+        "checked_game": room_contract.get("game_id"),
+        "skipped_contract_reason": room_contract.get("skipped_reason"),
     }, ensure_ascii=False))
     return 0
 
