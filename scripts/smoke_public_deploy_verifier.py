@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Dependency-free smoke checks for verify_public_deploy.py helper logic."""
+"""Dependency-free smoke checks for public verifier helper logic."""
 
 from __future__ import annotations
 
 import os
 from contextlib import contextmanager
 
+from verify_public_agent_contract import env_enabled, maybe_create_demo_room
 from verify_public_deploy import slow_checks, slow_threshold_ms
 
 
@@ -50,7 +51,24 @@ def main() -> int:
         {"check": "a", "duration_ms": 10, "threshold_ms": 5},
         {"check": "b", "duration_ms": 5, "threshold_ms": 5},
     ]
-    print("public deploy verifier smoke: ok")
+
+    with env_var("AAP_VERIFY_CREATE_DEMO", None):
+        assert env_enabled("AAP_VERIFY_CREATE_DEMO") is False
+        assert maybe_create_demo_room("https://example.invalid") == {
+            "created": False,
+            "reason": "demo creation disabled",
+        }
+    for value in ("1", "true", "yes", "on"):
+        with env_var("AAP_VERIFY_CREATE_DEMO", value), env_var("AAP_VERIFY_KEY", None):
+            assert env_enabled("AAP_VERIFY_CREATE_DEMO") is True
+            assert maybe_create_demo_room("https://example.invalid") == {
+                "created": False,
+                "reason": "AAP_VERIFY_KEY missing",
+            }
+    with env_var("AAP_VERIFY_CREATE_DEMO", "0"):
+        assert env_enabled("AAP_VERIFY_CREATE_DEMO") is False
+
+    print("public verifier helper smoke: ok")
     return 0
 
 
