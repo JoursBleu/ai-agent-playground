@@ -11,13 +11,27 @@ Usage:
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SLOW_CHECK_THRESHOLD_MS = 5000
+DEFAULT_SLOW_CHECK_THRESHOLD_MS = 5000
+
+
+def slow_threshold_ms() -> int:
+    raw = os.getenv("AAP_VERIFY_SLOW_MS", "").strip()
+    if not raw:
+        return DEFAULT_SLOW_CHECK_THRESHOLD_MS
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise SystemExit(f"AAP_VERIFY_SLOW_MS must be an integer milliseconds value, got {raw!r}") from exc
+    if value < 0:
+        raise SystemExit(f"AAP_VERIFY_SLOW_MS must be >= 0, got {value}")
+    return value
 
 
 def run_json(cmd: list[str]) -> tuple[dict, int]:
@@ -40,7 +54,7 @@ def run_json(cmd: list[str]) -> tuple[dict, int]:
         raise SystemExit(f"failed to parse JSON from {' '.join(cmd)}: {exc}\nstdout:\n{proc.stdout}") from exc
 
 
-def slow_checks(durations: dict[str, int], threshold_ms: int = SLOW_CHECK_THRESHOLD_MS) -> list[dict]:
+def slow_checks(durations: dict[str, int], threshold_ms: int) -> list[dict]:
     return [
         {"check": name, "duration_ms": duration, "threshold_ms": threshold_ms}
         for name, duration in sorted(durations.items())
@@ -74,14 +88,15 @@ def main() -> int:
         "discovery": discovery_ms,
     }
     total_ms = round((time.monotonic() - suite_started) * 1000)
+    threshold_ms = slow_threshold_ms()
 
     print(json.dumps({
         "ok": True,
         "base": base,
         "commit": commit,
         "duration_ms": total_ms,
-        "slow_threshold_ms": SLOW_CHECK_THRESHOLD_MS,
-        "slow_checks": slow_checks(durations),
+        "slow_threshold_ms": threshold_ms,
+        "slow_checks": slow_checks(durations, threshold_ms),
         "checks": {
             "health": {**health, "duration_ms": health_ms},
             "agent_contract": {**contract, "duration_ms": contract_ms},

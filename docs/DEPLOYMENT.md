@@ -102,7 +102,7 @@ Expected combined verification shape:
 
 `duration_ms` is informational. Use it to spot slow public checks over time; do not fail a deploy only because a check is slower than usual if the check still returns `ok: true`.
 
-`slow_checks` lists sub-checks whose duration is at or above `slow_threshold_ms` (currently 5000 ms). Treat it as an operations hint for monitoring and investigation, not as a failure signal by itself.
+`slow_checks` lists sub-checks whose duration is at or above `slow_threshold_ms` (default 5000 ms). Override the threshold for CI or local debugging with `AAP_VERIFY_SLOW_MS=<milliseconds>`. Treat it as an operations hint for monitoring and investigation, not as a failure signal by itself.
 
 ## 5. Rollback
 
