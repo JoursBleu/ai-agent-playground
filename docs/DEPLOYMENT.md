@@ -90,6 +90,8 @@ Expected combined verification shape:
   "base": "https://agent-playground.space",
   "commit": "<new commit>",
   "duration_ms": 8000,
+  "slow_threshold_ms": 5000,
+  "slow_checks": [],
   "checks": {
     "health": {"ok": true, "duration_ms": 1200},
     "agent_contract": {"ok": true, "duration_ms": 3200},
@@ -99,6 +101,8 @@ Expected combined verification shape:
 ```
 
 `duration_ms` is informational. Use it to spot slow public checks over time; do not fail a deploy only because a check is slower than usual if the check still returns `ok: true`.
+
+`slow_checks` lists sub-checks whose duration is at or above `slow_threshold_ms` (currently 5000 ms). Treat it as an operations hint for monitoring and investigation, not as a failure signal by itself.
 
 ## 5. Rollback
 
