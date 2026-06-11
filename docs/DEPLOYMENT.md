@@ -83,6 +83,13 @@ python3 scripts/verify_public_agent_contract.py https://agent-playground.space <
 python3 scripts/verify_public_discovery.py https://agent-playground.space
 ```
 
+When no public room exists, the agent contract check stays read-only by default and reports `demo_room.created=false`. To force full room-contract coverage, provide a short-lived verifier API key and explicitly allow demo room creation:
+
+```bash
+AAP_VERIFY_CREATE_DEMO=1 AAP_VERIFY_KEY="$AAP_KEY" \
+  python3 scripts/verify_public_agent_contract.py https://agent-playground.space <new-commit-prefix>
+```
+
 Expected combined verification shape:
 
 ```json
