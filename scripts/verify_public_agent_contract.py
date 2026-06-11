@@ -89,6 +89,13 @@ def verify_room_contract(base: str, gid: str) -> dict:
         raise SystemExit(f"ui-state missing actions list: {ui!r}")
     if actions.get("actions") != ui.get("actions"):
         raise SystemExit(f"actions != ui-state actions: actions={actions!r}, ui={ui!r}")
+    if not isinstance(schema.get("actions"), list):
+        raise SystemExit(f"schema missing actions list: {schema!r}")
+    schema_ids = {a.get("id") for a in schema.get("actions") or []}
+    visible_ids = {a.get("id") for a in actions.get("actions") or []}
+    missing_schema_ids = sorted(visible_ids - schema_ids)
+    if missing_schema_ids:
+        raise SystemExit(f"visible actions missing from schema: {missing_schema_ids!r}")
     if schema.get("schema_version") != ui.get("schema_version"):
         raise SystemExit(
             f"schema_version mismatch: ui={ui.get('schema_version')!r}, "
@@ -115,6 +122,7 @@ def verify_room_contract(base: str, gid: str) -> dict:
         "schema_version": ui.get("schema_version"),
         "event_count": len(ui.get("event_log") or []),
         "action_count": len(ui.get("actions") or []),
+        "schema_action_count": len(schema.get("actions") or []),
         "endpoints": ["ui-state", "actions", "action-schema", "events"],
     }
 

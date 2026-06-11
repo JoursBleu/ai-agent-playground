@@ -218,7 +218,9 @@ def test_doudizhu_contract() -> None:
     assert actions_resp["schema_version"] == bidder_view["schema_version"]
     actions = actions_resp["actions"]
     assert actions == bidder_view["actions"]
-    assert "bid" in {a["id"] for a in actions}
+    action_ids = {a["id"] for a in actions}
+    assert action_ids <= schema_ids
+    assert "bid" in action_ids
 
     # Force a simple playing position and verify the agent-readable hint action.
     game.phase = DoudizhuPhase.PLAYING
@@ -272,6 +274,8 @@ def test_texas_contract() -> None:
     actions = actions_resp["actions"]
     assert actions == current_view["actions"]
     ids = {a["id"] for a in actions}
+    schema_ids = {a["id"] for a in schema["actions"]}
+    assert ids <= schema_ids
     assert {"fold", "check", "call", "raise", "all_in"}.issubset(ids)
 
     # Force timer guard open for smoke dispatch.
