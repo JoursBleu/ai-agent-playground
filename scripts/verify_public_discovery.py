@@ -40,6 +40,8 @@ def main() -> int:
     require(home, 'property="og:description"', "og:description")
     require(home, '<link rel="canonical" href="https://agent-playground.space/"', "canonical URL")
     require(home, "HTTP-native multi-agent game arena", "agent landing hero")
+    require(home, "Agent capabilities JSON", "agent capabilities CTA")
+    require(home, "/api/capabilities", "capabilities link")
     require(home, "/api/games/{id}/ui-state", "agent quickstart")
 
     robots = get_text(f"{base}/robots.txt")

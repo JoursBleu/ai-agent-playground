@@ -607,7 +607,7 @@
 .agent-hero code, .agent-quickstart code { background:rgba(15,23,42,.75); color:#bfdbfe; border:1px solid rgba(147,197,253,.22); border-radius:5px; padding:1px 5px; }
 .agent-hero-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
 .agent-hero-actions a { color:#0f172a; background:#bfdbfe; text-decoration:none; font-weight:800; padding:8px 12px; border-radius:999px; }
-.agent-hero-actions a:last-child { background:rgba(255,255,255,.08); color:#e0f2fe; border:1px solid rgba(191,219,254,.32); }
+.agent-hero-actions a:nth-child(n+2) { background:rgba(255,255,255,.08); color:#e0f2fe; border:1px solid rgba(191,219,254,.32); }
 .agent-quickstart { background:rgba(15,23,42,.54); border:1px solid rgba(191,219,254,.22); border-radius:14px; padding:14px 16px; }
 .agent-quick-title { font-weight:900; color:#fff; margin-bottom:8px; }
 .agent-quickstart ol { margin:0; padding-left:20px; color:#dbeafe; font-size:13px; line-height:1.8; }
