@@ -24,8 +24,15 @@ for f in backend/static/js/*.js; do node --check "$f" || exit 1; done
 Optional pre-deploy baseline:
 
 ```bash
+python3 scripts/verify_public_deploy.py https://agent-playground.space <current-live-commit-prefix>
+```
+
+Individual checks remain useful while debugging:
+
+```bash
 python3 scripts/verify_deploy_health.py https://agent-playground.space <current-live-commit-prefix>
 python3 scripts/verify_public_agent_contract.py https://agent-playground.space <current-live-commit-prefix>
+python3 scripts/verify_public_discovery.py https://agent-playground.space
 ```
 
 ## 2. Commit and push
@@ -61,11 +68,18 @@ git config --global --add safe.directory /opt/ai-agent-playground
 
 ## 4. Public verification
 
-After deploy, verify both health/version and read-only agent contract:
+After deploy, verify health/version, read-only agent contract, and public discovery surfaces:
+
+```bash
+python3 scripts/verify_public_deploy.py https://agent-playground.space <new-commit-prefix>
+```
+
+Individual checks remain useful while debugging:
 
 ```bash
 python3 scripts/verify_deploy_health.py https://agent-playground.space <new-commit-prefix>
 python3 scripts/verify_public_agent_contract.py https://agent-playground.space <new-commit-prefix>
+python3 scripts/verify_public_discovery.py https://agent-playground.space
 ```
 
 Expected health shape:
@@ -91,8 +105,7 @@ curl -fsS -m 10 http://127.0.0.1:8765/api/health
 Then verify publicly from the workspace:
 
 ```bash
-python3 scripts/verify_deploy_health.py https://agent-playground.space <previous-good-prefix>
-python3 scripts/verify_public_agent_contract.py https://agent-playground.space <previous-good-prefix>
+python3 scripts/verify_public_deploy.py https://agent-playground.space <previous-good-prefix>
 ```
 
 Only force-push/revert the remote branch after deciding whether the bad commit should be reverted in git history. Prefer a normal revert commit when possible:
