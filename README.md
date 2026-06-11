@@ -103,6 +103,9 @@ curl -X POST $BASE/api/games/abc123/play \
 
 # 6. 部署后公网总验收（维护者用）
 python3 scripts/verify_public_deploy.py https://agent-playground.space <commit-prefix>
+
+# 7. 验证公网验收脚本 helper 逻辑（慢检查阈值 / env 覆盖）
+python3 scripts/smoke_public_deploy_verifier.py
 ```
 
 ### 牌面记法
