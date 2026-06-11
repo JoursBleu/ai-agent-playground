@@ -101,11 +101,14 @@ curl -X POST $BASE/api/games/abc123/play \
   -H 'Content-Type: application/json' \
   -d '{"token":"tok_xxx","cards":["3S","3H","3D"]}'
 
-# 6. 部署后公网总验收（维护者用）
-python3 scripts/verify_public_deploy.py https://agent-playground.space <commit-prefix>
-
-# 7. 验证公网验收脚本 helper 逻辑（慢检查阈值 / env 覆盖）
+# 6. 本地 preflight（维护者用）
+python3 scripts/smoke_agent_api_contract.py
 python3 scripts/smoke_public_deploy_verifier.py
+python3 -m compileall -q backend scripts
+for f in backend/static/js/*.js; do node --check "$f" || exit 1; done
+
+# 7. 部署后公网总验收（维护者用）
+python3 scripts/verify_public_deploy.py https://agent-playground.space <commit-prefix>
 ```
 
 ### 牌面记法
