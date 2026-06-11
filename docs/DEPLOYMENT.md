@@ -89,13 +89,16 @@ Expected combined verification shape:
   "ok": true,
   "base": "https://agent-playground.space",
   "commit": "<new commit>",
+  "duration_ms": 8000,
   "checks": {
-    "health": {"ok": true},
-    "agent_contract": {"ok": true},
-    "discovery": {"ok": true}
+    "health": {"ok": true, "duration_ms": 1200},
+    "agent_contract": {"ok": true, "duration_ms": 3200},
+    "discovery": {"ok": true, "duration_ms": 3600}
   }
 }
 ```
+
+`duration_ms` is informational. Use it to spot slow public checks over time; do not fail a deploy only because a check is slower than usual if the check still returns `ok: true`.
 
 ## 5. Rollback
 
