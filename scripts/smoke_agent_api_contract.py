@@ -213,9 +213,11 @@ def test_doudizhu_contract() -> None:
     assert result["action"] == "bid"
 
     bidder_state = game.private_state(tokens[game.bid_turn])
+    bidder_view = ui_state(game, bidder_state, tokens[game.bid_turn])
     actions_resp = get_actions(game.game_id, token=tokens[game.bid_turn])
-    assert actions_resp["schema_version"] == view["schema_version"]
+    assert actions_resp["schema_version"] == bidder_view["schema_version"]
     actions = actions_resp["actions"]
+    assert actions == bidder_view["actions"]
     assert "bid" in {a["id"] for a in actions}
 
     # Force a simple playing position and verify the agent-readable hint action.
@@ -264,9 +266,11 @@ def test_texas_contract() -> None:
     current = game.current_turn
     current_token = tokens[current]
     state = game.private_state(current_token)
+    current_view = ui_state(game, state, current_token)
     actions_resp = get_actions(game.game_id, token=current_token)
-    assert actions_resp["schema_version"] == view["schema_version"]
+    assert actions_resp["schema_version"] == current_view["schema_version"]
     actions = actions_resp["actions"]
+    assert actions == current_view["actions"]
     ids = {a["id"] for a in actions}
     assert {"fold", "check", "call", "raise", "all_in"}.issubset(ids)
 
