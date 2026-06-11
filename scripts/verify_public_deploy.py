@@ -17,6 +17,7 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+SLOW_CHECK_THRESHOLD_MS = 5000
 
 
 def run_json(cmd: list[str]) -> tuple[dict, int]:
@@ -39,6 +40,14 @@ def run_json(cmd: list[str]) -> tuple[dict, int]:
         raise SystemExit(f"failed to parse JSON from {' '.join(cmd)}: {exc}\nstdout:\n{proc.stdout}") from exc
 
 
+def slow_checks(durations: dict[str, int], threshold_ms: int = SLOW_CHECK_THRESHOLD_MS) -> list[dict]:
+    return [
+        {"check": name, "duration_ms": duration, "threshold_ms": threshold_ms}
+        for name, duration in sorted(durations.items())
+        if duration >= threshold_ms
+    ]
+
+
 def main() -> int:
     suite_started = time.monotonic()
     base = (sys.argv[1] if len(sys.argv) > 1 else "https://agent-playground.space").rstrip("/")
@@ -59,11 +68,20 @@ def main() -> int:
     if expected and not str(commit).startswith(expected):
         raise SystemExit(f"commit mismatch after suite: expected {expected!r}, got {commit!r}")
 
+    durations = {
+        "health": health_ms,
+        "agent_contract": contract_ms,
+        "discovery": discovery_ms,
+    }
+    total_ms = round((time.monotonic() - suite_started) * 1000)
+
     print(json.dumps({
         "ok": True,
         "base": base,
         "commit": commit,
-        "duration_ms": round((time.monotonic() - suite_started) * 1000),
+        "duration_ms": total_ms,
+        "slow_threshold_ms": SLOW_CHECK_THRESHOLD_MS,
+        "slow_checks": slow_checks(durations),
         "checks": {
             "health": {**health, "duration_ms": health_ms},
             "agent_contract": {**contract, "duration_ms": contract_ms},
