@@ -6,6 +6,9 @@ command while still keeping each focused script usable on its own.
 
 Usage:
   python3 scripts/verify_public_deploy.py [base_url] [expected_commit_prefix]
+
+Environment:
+  AAP_VERIFY_SLOW_MS  Slow-check threshold in milliseconds (default: 5000).
 """
 
 from __future__ import annotations
