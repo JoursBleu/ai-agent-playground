@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Verify public Agent Playground agent-facing read contracts.
 
-This script intentionally avoids mutating state. It checks:
+By default this script avoids mutating state. It checks:
 - /api/health exposes deployed commit/version
 - /api/capabilities exposes machine-readable endpoint discovery
 - /api/games is reachable
@@ -10,12 +10,18 @@ This script intentionally avoids mutating state. It checks:
 
 Usage:
   python3 scripts/verify_public_agent_contract.py [base_url] [expected_commit_prefix]
+
+Environment:
+  AAP_VERIFY_CREATE_DEMO=1  Create a waiting demo room when no public room exists.
+  AAP_VERIFY_KEY=aap_...    Bearer API key used for optional demo room creation.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import sys
+import urllib.error
 import urllib.request
 
 UA = "OpenClaw-Agent-Contract-Verify/1.0"
@@ -25,6 +31,44 @@ def get_json(url: str) -> dict:
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=20) as resp:
         return json.loads(resp.read().decode("utf-8"))
+
+
+def post_json(url: str, payload: dict, *, bearer: str = "") -> dict:
+    headers = {"User-Agent": UA, "Content-Type": "application/json"}
+    if bearer:
+        headers["Authorization"] = f"Bearer {bearer}"
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def env_enabled(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def maybe_create_demo_room(base: str) -> dict:
+    """Create a short-lived public waiting room only when explicitly enabled."""
+    if not env_enabled("AAP_VERIFY_CREATE_DEMO"):
+        return {"created": False, "reason": "demo creation disabled"}
+    key = os.getenv("AAP_VERIFY_KEY", "").strip()
+    if not key:
+        return {"created": False, "reason": "AAP_VERIFY_KEY missing"}
+    payload = {
+        "name": "agent-contract-demo",
+        "description": "temporary contract verifier room",
+        "game_type": "doudizhu",
+        "rule_mode": "builtin",
+    }
+    try:
+        resp = post_json(f"{base}/api/games", payload, bearer=key)
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")[:300]
+        return {"created": False, "reason": f"create failed: HTTP {exc.code} {detail}"}
+    gid = resp.get("game_id")
+    if not gid:
+        return {"created": False, "reason": f"create response missing game_id: {resp!r}"}
+    return {"created": True, "game_id": gid, "game_type": resp.get("game_type")}
 
 
 def verify_room_contract(base: str, gid: str) -> dict:
@@ -97,13 +141,24 @@ def main() -> int:
     if not isinstance(games, list):
         raise SystemExit(f"bad games response: {games_resp!r}")
 
+    demo_room = {"created": False}
     room_contract = {
         "covered": False,
         "game_id": None,
         "skipped_reason": "no public games",
     }
+    if not games:
+        demo_room = maybe_create_demo_room(base)
+        if demo_room.get("created"):
+            games_resp = get_json(f"{base}/api/games")
+            games = games_resp.get("games") if isinstance(games_resp, dict) else []
+            if not isinstance(games, list):
+                raise SystemExit(f"bad games response after demo create: {games_resp!r}")
+        else:
+            room_contract["skipped_reason"] = str(demo_room.get("reason") or "no public games")
+
     if games:
-        gid = games[0].get("game_id") or games[0].get("id")
+        gid = demo_room.get("game_id") or games[0].get("game_id") or games[0].get("id")
         if not gid:
             room_contract["skipped_reason"] = "first public game missing id"
         else:
@@ -118,6 +173,7 @@ def main() -> int:
             "capabilities": {"ok": True, "schema_version": caps.get("schema_version"), "endpoints": sorted(endpoints), "maintenance": sorted(maintenance)},
             "games": {"ok": True, "count": len(games)},
             "room_contract": room_contract,
+            "demo_room": demo_room,
         },
         # Backward-compatible summary fields for humans/scripts that grep output.
         "games_count": len(games),
