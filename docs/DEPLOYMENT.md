@@ -82,10 +82,19 @@ python3 scripts/verify_public_agent_contract.py https://agent-playground.space <
 python3 scripts/verify_public_discovery.py https://agent-playground.space
 ```
 
-Expected health shape:
+Expected combined verification shape:
 
 ```json
-{"ok": true, "url": "https://agent-playground.space/api/health", "commit": "<new commit>", "source": "git"}
+{
+  "ok": true,
+  "base": "https://agent-playground.space",
+  "commit": "<new commit>",
+  "checks": {
+    "health": {"ok": true},
+    "agent_contract": {"ok": true},
+    "discovery": {"ok": true}
+  }
+}
 ```
 
 ## 5. Rollback
