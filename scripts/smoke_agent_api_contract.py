@@ -115,6 +115,7 @@ from backend.game_routes import (  # noqa: E402
     game_type,
     generic_action,
     get_action_schema,
+    get_actions,
     get_events,
     health,
     ui_state,
@@ -203,7 +204,9 @@ def test_doudizhu_contract() -> None:
     assert result["action"] == "bid"
 
     bidder_state = game.private_state(tokens[game.bid_turn])
-    actions = action_descriptors(game, bidder_state, tokens[game.bid_turn])
+    actions_resp = get_actions(game.game_id, token=tokens[game.bid_turn])
+    assert actions_resp["schema_version"] == view["schema_version"]
+    actions = actions_resp["actions"]
     assert "bid" in {a["id"] for a in actions}
 
     # Force a simple playing position and verify the agent-readable hint action.
@@ -252,7 +255,9 @@ def test_texas_contract() -> None:
     current = game.current_turn
     current_token = tokens[current]
     state = game.private_state(current_token)
-    actions = action_descriptors(game, state, current_token)
+    actions_resp = get_actions(game.game_id, token=current_token)
+    assert actions_resp["schema_version"] == view["schema_version"]
+    actions = actions_resp["actions"]
     ids = {a["id"] for a in actions}
     assert {"fold", "check", "call", "raise", "all_in"}.issubset(ids)
 

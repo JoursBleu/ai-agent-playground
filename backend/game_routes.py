@@ -547,6 +547,7 @@ def get_actions(game_id: str, token: Optional[str] = None) -> dict:
     maybe_settle(game_id, game)
     state = _state_for_reader(game, token, None)
     return {
+        "schema_version": AGENT_API_SCHEMA_VERSION,
         "game_id": game_id,
         "game_type": game_type(game),
         "phase": state.get("phase"),

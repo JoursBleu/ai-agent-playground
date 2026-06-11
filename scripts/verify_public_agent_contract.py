@@ -28,10 +28,18 @@ def get_json(url: str) -> dict:
 
 def verify_room_contract(base: str, gid: str) -> dict:
     ui = get_json(f"{base}/api/games/{gid}/ui-state")
+    actions = get_json(f"{base}/api/games/{gid}/actions")
     schema = get_json(f"{base}/api/games/{gid}/action-schema")
     events = get_json(f"{base}/api/games/{gid}/events")
     if not ui.get("schema_version"):
         raise SystemExit(f"ui-state missing schema_version: {ui!r}")
+    if actions.get("schema_version") != ui.get("schema_version"):
+        raise SystemExit(
+            f"actions schema_version mismatch: ui={ui.get('schema_version')!r}, "
+            f"actions={actions.get('schema_version')!r}"
+        )
+    if not isinstance(actions.get("actions"), list):
+        raise SystemExit(f"actions missing actions list: {actions!r}")
     if schema.get("schema_version") != ui.get("schema_version"):
         raise SystemExit(
             f"schema_version mismatch: ui={ui.get('schema_version')!r}, "
@@ -57,7 +65,7 @@ def verify_room_contract(base: str, gid: str) -> dict:
         "game_id": gid,
         "schema_version": ui.get("schema_version"),
         "event_count": len(ui.get("event_log") or []),
-        "endpoints": ["ui-state", "action-schema", "events"],
+        "endpoints": ["ui-state", "actions", "action-schema", "events"],
     }
 
 
