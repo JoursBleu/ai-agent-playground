@@ -589,6 +589,7 @@ def get_action_schema(game_id: str) -> dict:
         "execute_endpoint": f"/api/games/{game_id}/action",
         "state_endpoint": f"/api/games/{game_id}/ui-state",
         "actions_endpoint": f"/api/games/{game_id}/actions",
+        "events_endpoint": f"/api/games/{game_id}/events",
     }
     if gt == "texas_holdem":
         common["actions"] = [

@@ -191,6 +191,7 @@ def test_doudizhu_contract() -> None:
     assert events["events"] == view["event_log"]
     schema = get_action_schema(game.game_id)
     assert schema["schema_version"] == view["schema_version"]
+    assert schema["events_endpoint"].endswith(f"/{game.game_id}/events")
     schema_ids = {a["id"] for a in schema["actions"]}
     assert "play_hint" in schema_ids
     assert "play_smallest_single" not in schema_ids
@@ -244,6 +245,7 @@ def test_texas_contract() -> None:
     assert events["events"] == view["event_log"]
     schema = get_action_schema(game.game_id)
     assert schema["schema_version"] == view["schema_version"]
+    assert schema["events_endpoint"].endswith(f"/{game.game_id}/events")
     raise_schema = next(a for a in schema["actions"] if a["id"] == "raise")
     assert {"amount", "min", "max"}.issubset(set(raise_schema["params"].keys()))
 

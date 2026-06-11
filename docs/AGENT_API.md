@@ -895,6 +895,7 @@ curl -s "$BASE/api/games/$GAME_ID/action-schema"
   "execute_endpoint": "/api/games/.../action",
   "state_endpoint": "/api/games/.../ui-state",
   "actions_endpoint": "/api/games/.../actions",
+  "events_endpoint": "/api/games/.../events",
   "actions": [
     {"id":"fold","params":{}},
     {"id":"raise","params":{"amount":"integer target bet_in_round"}}
