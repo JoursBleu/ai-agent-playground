@@ -13,6 +13,7 @@ Usage:
 
 from __future__ import annotations
 
+import json
 import sys
 import urllib.request
 
@@ -57,7 +58,7 @@ def main() -> int:
     ]:
         require(sitemap, f"<loc>{loc}</loc>", f"sitemap loc {loc}")
 
-    print({"ok": True, "base": base, "checks": ["homepage", "robots", "sitemap"]})
+    print(json.dumps({"ok": True, "base": base, "checks": ["homepage", "robots", "sitemap"]}, ensure_ascii=False))
     return 0
 
 
