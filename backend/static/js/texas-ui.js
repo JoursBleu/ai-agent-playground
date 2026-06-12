@@ -134,8 +134,12 @@ function texasActionById(actions, id) {
 function setTexasButton(id, action) {
   const btn = $(id);
   if (!btn) return;
-  btn.disabled = !(action && action.enabled);
-  btn.title = action && !action.enabled ? (action.disabled_reason || '') : '';
+  const enabled = !!(action && action.enabled);
+  btn.disabled = !enabled;
+  btn.title = action && !enabled ? (action.disabled_reason || '') : '';
+  btn.dataset.actionId = action && action.id ? action.id : '';
+  btn.dataset.actionEnabled = enabled ? 'true' : 'false';
+  btn.dataset.disabledReason = action && !enabled ? (action.disabled_reason || '') : '';
 }
 
 function renderTexasActionBar(ctx) {
@@ -200,7 +204,7 @@ function renderTexasActionMirror(actions) {
     const enabled = !!a.enabled;
     const params = a.params && Object.keys(a.params).length ? JSON.stringify(a.params) : '';
     const reason = enabled ? '' : (a.disabled_reason || 'disabled');
-    return `<div class="texas-action-chip ${enabled ? 'enabled' : 'disabled'}">
+    return `<div class="texas-action-chip ${enabled ? 'enabled' : 'disabled'}" data-action-id="${escapeHtml(a.id || '')}" data-action-enabled="${enabled ? 'true' : 'false'}" data-disabled-reason="${escapeHtml(reason)}">
       <span><strong>${escapeHtml(a.id || '')}</strong> ${escapeHtml(a.label || '')}</span>
       <span class="muted">${escapeHtml(params || reason)}</span>
     </div>`;

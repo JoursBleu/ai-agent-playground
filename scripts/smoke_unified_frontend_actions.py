@@ -34,6 +34,16 @@ def main() -> int:
     app_js = (ROOT / "backend/static/js/app.js").read_text(encoding="utf-8")
     if "function gameAction" not in app_js or "/api/games/${gameId}/action" not in app_js:
         raise SystemExit("missing unified gameAction() helper")
+    required_action_handles = {
+        "backend/static/js/app.js": ["data-action-id", "data-action-enabled"],
+        "backend/static/js/doudizhu-ui.js": ["dataset.actionId = 'bid'", "dataset.actionId = id"],
+        "backend/static/js/texas-ui.js": ["dataset.actionId", "data-action-id"],
+    }
+    for rel, snippets in required_action_handles.items():
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        for snippet in snippets:
+            if snippet not in text:
+                raise SystemExit(f"missing frontend machine-readable action handle {snippet!r} in {rel}")
     print("unified frontend actions smoke: ok")
     return 0
 

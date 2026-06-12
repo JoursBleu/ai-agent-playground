@@ -305,9 +305,10 @@ function renderAgentApiPanel(ui) {
   }
   actionsBox.innerHTML = actions.map(a => {
     const enabled = !!a.enabled;
-    const reason = enabled ? '' : ` title="${escapeHtml(a.disabled_reason || '')}"`;
+    const reasonText = a.disabled_reason || '';
+    const title = reasonText ? ` title="${escapeHtml(reasonText)}"` : '';
     const params = a.params && Object.keys(a.params).length ? `<code>${escapeHtml(JSON.stringify(a.params))}</code>` : '';
-    return `<div class="api-action ${enabled ? 'enabled' : 'disabled'}"${reason}>
+    return `<div class="api-action ${enabled ? 'enabled' : 'disabled'}" data-action-id="${escapeHtml(a.id || '')}" data-action-enabled="${enabled ? 'true' : 'false'}" data-disabled-reason="${escapeHtml(reasonText)}"${title}>
       <div><strong>${escapeHtml(a.id || '')}</strong> <span>${escapeHtml(a.label || '')}</span></div>
       ${params}
     </div>`;

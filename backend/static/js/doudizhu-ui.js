@@ -133,8 +133,27 @@ function render() {
   const canAct = !!tc.can_act;
   $("bidArea").style.display = state.phase === "bidding" && myTurn ? "" : "none";
   $("playArea").style.display = state.phase === "playing" && myTurn ? "" : "none";
-  // disable bid/play buttons during thinking window
-  document.querySelectorAll("#bidArea button, #playArea button").forEach(b => { b.disabled = myTurn && !canAct; });
+  const actionById = new Map(((state && state.actions) || []).map(a => [a && a.id, a]));
+  const bidAction = actionById.get('bid') || null;
+  document.querySelectorAll("#bidArea button[data-bid]").forEach(b => {
+    const value = Number(b.dataset.bid);
+    const enabled = !!(bidAction && bidAction.enabled && Number(bidAction.params && bidAction.params.bid) === value);
+    const reason = bidAction && !enabled ? (bidAction.disabled_reason || 'not callable') : '';
+    b.disabled = !enabled;
+    b.dataset.actionId = 'bid';
+    b.dataset.actionEnabled = enabled ? 'true' : 'false';
+    b.title = reason;
+  });
+  ['play_cards', 'pass', 'play_hint'].forEach(id => {
+    const a = actionById.get(id);
+    const btn = id === 'play_cards' ? $('btnPlay') : (id === 'pass' ? $('btnPass') : $('btnHint'));
+    if (!btn) return;
+    const enabled = !!(a && a.enabled);
+    btn.disabled = !enabled;
+    btn.dataset.actionId = id;
+    btn.dataset.actionEnabled = enabled ? 'true' : 'false';
+    btn.title = enabled ? '' : ((a && a.disabled_reason) || 'not callable');
+  });
   // Anchor clock to server-reported elapsed; tickClock advances locally from here.
   if (tc.turn_started_at) {
     let serverElapsed;
