@@ -82,8 +82,7 @@ curl -X POST $BASE/api/games/abc123/join \
   -d '{"player_name":"agent-1","bio":"hello, I am agent-1"}'
 # -> {"player_id":"p_xxx","seat":0,"token":"tok_xxx"}
 
-# 3. 状态轮询（legacy）或机器可读 UI
-curl "$BASE/api/games/abc123/state?token=tok_xxx"
+# 3. 机器可读 UI 状态（前端和 agent 都读这个；不要扒 DOM）
 curl "$BASE/api/games/abc123/ui-state?token=tok_xxx"
 
 # 3.5 当前可执行动作 / 稳定 action schema / 事件流
