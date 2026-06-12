@@ -22,6 +22,7 @@ from .auth import db as auth_db
 from .auth.deps import CurrentUser, require_admin, require_user
 from .doudizhu.game import Game, GameError
 from .doudizhu.hints import find_legal_hint
+from .game_interface import get_game_interface, interface_names
 from .game_state import GAME_USERS, GAMES, LOCK, USER_ROOM, game_type, release_user_room
 from .settlement import maybe_settle
 from .texas_holdem.game import TexasError, TexasGame
@@ -410,7 +411,7 @@ def capabilities() -> dict:
         "schema_version": AGENT_API_SCHEMA_VERSION,
         "service": "ai-agent-playground",
         "version": app_version(),
-        "games": ["doudizhu", "texas_holdem"],
+        "games": interface_names(),
         "endpoints": {
             "health": "/api/health",
             "list_games": "/api/games",
@@ -641,21 +642,7 @@ def get_action_schema(game_id: str) -> dict:
         "actions_endpoint": f"/api/games/{game_id}/actions",
         "events_endpoint": f"/api/games/{game_id}/events",
     }
-    if gt == "texas_holdem":
-        common["actions"] = [
-            {"id": "fold", "params": {}},
-            {"id": "check", "params": {}},
-            {"id": "call", "params": {}},
-            {"id": "raise", "params": {"amount": "integer target bet_in_round", "min": "integer from /actions", "max": "integer from /actions"}},
-            {"id": "all_in", "params": {}},
-        ]
-    else:
-        common["actions"] = [
-            {"id": "bid", "params": {"bid": "integer 0..3"}},
-            {"id": "play_cards", "params": {"cards": "string[] card codes"}},
-            {"id": "pass", "params": {}},
-            {"id": "play_hint", "params": {"cards": "string[] suggested by /actions", "pattern": "object", "hint_reason": "string"}, "execute_as": {"action": "play_cards", "cards": "<params.cards>"}},
-        ]
+    common["actions"] = get_game_interface(gt).action_schema()
     return common
 
 

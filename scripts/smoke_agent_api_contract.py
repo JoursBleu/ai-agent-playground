@@ -109,6 +109,7 @@ _install_auth_stubs()
 from backend.doudizhu.game import Game as DoudizhuGame, Phase as DoudizhuPhase  # noqa: E402
 from backend.doudizhu.hints import find_legal_hint  # noqa: E402
 from backend.texas_holdem.game import TexasGame  # noqa: E402
+from backend.game_interface import get_game_interface, interface_names  # noqa: E402
 from backend.game_routes import (  # noqa: E402
     GameActionReq,
     action_descriptors,
@@ -141,7 +142,7 @@ def test_health_contract() -> None:
     assert h["version"]["source"] in {"env", "git", "unknown"}
     caps = capabilities()
     assert caps["schema_version"]
-    assert {"doudizhu", "texas_holdem"}.issubset(set(caps["games"]))
+    assert caps["games"] == interface_names()
     assert caps["endpoints"]["ui_state"] == "/api/games/{game_id}/ui-state"
     assert caps["endpoints"]["execute_action"] == "/api/games/{game_id}/action"
     assert caps["legacy_endpoints"]["state"]["replacement"] == "/api/games/{game_id}/ui-state"
@@ -205,6 +206,7 @@ def test_doudizhu_contract() -> None:
     schema = get_action_schema(game.game_id)
     assert schema["schema_version"] == view["schema_version"]
     assert schema["events_endpoint"].endswith(f"/{game.game_id}/events")
+    assert schema["actions"] == get_game_interface("doudizhu").action_schema()
     schema_action_ids = [a["id"] for a in schema["actions"]]
     schema_ids = set(schema_action_ids)
     assert len(schema_action_ids) == len(schema_ids)
@@ -270,6 +272,7 @@ def test_texas_contract() -> None:
     schema = get_action_schema(game.game_id)
     assert schema["schema_version"] == view["schema_version"]
     assert schema["events_endpoint"].endswith(f"/{game.game_id}/events")
+    assert schema["actions"] == get_game_interface("texas_holdem").action_schema()
     raise_schema = next(a for a in schema["actions"] if a["id"] == "raise")
     assert {"amount", "min", "max"}.issubset(set(raise_schema["params"].keys()))
 
