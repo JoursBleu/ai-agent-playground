@@ -11,7 +11,9 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from .doudizhu.game import GameError
 from .doudizhu.hints import find_legal_hint
+from .texas_holdem.game import TexasError
 
 
 @dataclass(frozen=True)
@@ -21,6 +23,7 @@ class GameInterface:
     game_type: str
     actions: tuple[dict[str, Any], ...]
     legal_actions: Callable[[dict[str, Any], str | None], list[dict[str, Any]]]
+    apply_action_fn: Callable[[Any, Any], dict[str, Any]]
 
     def action_schema(self) -> list[dict[str, Any]]:
         """Return a JSON-safe action schema copy."""
@@ -29,6 +32,10 @@ class GameInterface:
     def action_descriptors(self, state: dict[str, Any], token: str | None) -> list[dict[str, Any]]:
         """Return current visible action handles for one viewer."""
         return self.legal_actions(state, token)
+
+    def apply_action(self, game: Any, req: Any) -> dict[str, Any]:
+        """Apply a normalized mutation request to the underlying engine."""
+        return self.apply_action_fn(game, req)
 
     def action_schema_response(self, *, schema_version: str, game_id: str) -> dict[str, Any]:
         """Return the full /action-schema response for one room."""
@@ -113,6 +120,35 @@ def doudizhu_legal_actions(state: dict[str, Any], token: str | None) -> list[dic
     return actions
 
 
+def doudizhu_apply_action(game: Any, req: Any) -> dict[str, Any]:
+    action = (req.action or "").strip().lower().replace("-", "_")
+    if action == "bid":
+        if req.bid is None:
+            raise GameError("bid is required for bid action")
+        game.bid(req.token, int(req.bid))
+        return {"action": "bid", "bid": int(req.bid)}
+    if action in ("play", "play_cards"):
+        return game.play(req.token, req.cards)
+    if action == "pass":
+        return game.play(req.token, [])
+    if action == "play_hint":
+        state = game.private_state(req.token)
+        you = state.get("you") or {}
+        must_lead = state.get("last_play_seat", -1) in (-1, you.get("seat"))
+        hint = find_legal_hint(
+            you.get("hand") or [],
+            last_play_codes=state.get("last_play_cards") or [],
+            must_lead=must_lead,
+        )
+        if not hint:
+            raise GameError("no legal hint available")
+        return game.play(req.token, hint["cards"])
+    raise GameError(f"unknown doudizhu action {action!r}")
+
+
+
+
+
 def texas_holdem_legal_actions(state: dict[str, Any], token: str | None) -> list[dict[str, Any]]:
     you = state.get("you") or {}
     clock = state.get("turn_clock") or {}
@@ -134,6 +170,23 @@ def texas_holdem_legal_actions(state: dict[str, Any], token: str | None) -> list
     ]
 
 
+def texas_holdem_apply_action(game: Any, req: Any) -> dict[str, Any]:
+    action = (req.action or "").strip().lower().replace("-", "_")
+    if action == "fold":
+        return game.fold(req.token)
+    if action == "check":
+        return game.check(req.token)
+    if action == "call":
+        return game.call(req.token)
+    if action == "raise":
+        if req.amount is None:
+            raise TexasError("amount is required for raise")
+        return game.raise_to(req.token, int(req.amount))
+    if action in ("allin", "all_in"):
+        return game.all_in(req.token)
+    raise TexasError(f"unknown texas_holdem action {action!r}")
+
+
 DOUDIZHU_INTERFACE = GameInterface(
     game_type="doudizhu",
     actions=(
@@ -147,6 +200,7 @@ DOUDIZHU_INTERFACE = GameInterface(
         },
     ),
     legal_actions=doudizhu_legal_actions,
+    apply_action_fn=doudizhu_apply_action,
 )
 
 TEXAS_HOLDEM_INTERFACE = GameInterface(
@@ -166,6 +220,7 @@ TEXAS_HOLDEM_INTERFACE = GameInterface(
         {"id": "all_in", "params": {}},
     ),
     legal_actions=texas_holdem_legal_actions,
+    apply_action_fn=texas_holdem_apply_action,
 )
 
 INTERFACES: dict[str, GameInterface] = {

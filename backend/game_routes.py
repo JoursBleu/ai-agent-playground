@@ -21,7 +21,6 @@ from pydantic import BaseModel, Field
 from .auth import db as auth_db
 from .auth.deps import CurrentUser, require_admin, require_user
 from .doudizhu.game import Game, GameError
-from .doudizhu.hints import find_legal_hint
 from .game_interface import base_ui_state, event_log_for, get_game_interface, interface_names, table_view_for
 from .game_state import GAME_USERS, GAMES, LOCK, USER_ROOM, game_type, release_user_room
 from .settlement import maybe_settle
@@ -201,51 +200,10 @@ def ui_state(game, state: dict, token: Optional[str]) -> dict:
 
 def apply_generic_action(game_id: str, game, req: GameActionReq) -> dict:
     """Dispatch a machine-callable action to the underlying engine."""
-    gt = game_type(game)
-    action = (req.action or "").strip().lower().replace("-", "_")
-    if gt == "texas_holdem":
-        try:
-            if action == "fold":
-                return game.fold(req.token)
-            if action == "check":
-                return game.check(req.token)
-            if action == "call":
-                return game.call(req.token)
-            if action == "raise":
-                if req.amount is None:
-                    raise TexasError("amount is required for raise")
-                return game.raise_to(req.token, int(req.amount))
-            if action in ("allin", "all_in"):
-                return game.all_in(req.token)
-        except TexasError as exc:
-            raise HTTPException(status_code=400, detail=str(exc))
-        raise HTTPException(status_code=400, detail=f"unknown texas_holdem action {action!r}")
-
     try:
-        if action == "bid":
-            if req.bid is None:
-                raise GameError("bid is required for bid action")
-            game.bid(req.token, int(req.bid))
-            return {"action": "bid", "bid": int(req.bid)}
-        if action in ("play", "play_cards"):
-            return game.play(req.token, req.cards)
-        if action == "pass":
-            return game.play(req.token, [])
-        if action == "play_hint":
-            state = game.private_state(req.token)
-            you = state.get("you") or {}
-            must_lead = state.get("last_play_seat", -1) in (-1, you.get("seat"))
-            hint = find_legal_hint(
-                you.get("hand") or [],
-                last_play_codes=state.get("last_play_cards") or [],
-                must_lead=must_lead,
-            )
-            if not hint:
-                raise GameError("no legal hint available")
-            return game.play(req.token, hint["cards"])
-    except GameError as exc:
+        return get_game_interface(game_type(game)).apply_action(game, req)
+    except (GameError, TexasError) as exc:
         raise game_error(exc)
-    raise HTTPException(status_code=400, detail=f"unknown doudizhu action {action!r}")
 
 
 # ---- API ------------------------------------------------------------------

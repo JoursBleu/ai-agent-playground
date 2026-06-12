@@ -111,11 +111,13 @@ from backend.doudizhu.hints import find_legal_hint  # noqa: E402
 from backend.texas_holdem.game import TexasGame  # noqa: E402
 from backend.game_interface import (
     base_ui_state,
+    doudizhu_apply_action,
     doudizhu_legal_actions,
     event_log_for,
     get_game_interface,
     interface_names,
     table_view_for,
+    texas_holdem_apply_action,
     texas_holdem_legal_actions,
 )  # noqa: E402
 from backend.game_routes import (  # noqa: E402
@@ -240,6 +242,11 @@ def test_doudizhu_contract() -> None:
     req = GameActionReq(token=tokens[bidder], action="bid", bid=1)
     result = apply_generic_action(game.game_id, game, req)
     assert result["action"] == "bid"
+    game2 = DoudizhuGame("ddz-smoke-apply", name="ddz smoke apply", seed=7)
+    tokens2 = _join_all_doudizhu(game2)
+    bidder2 = game2.bid_turn
+    game2.turn_started_at -= game2.THINK_SECONDS + 1
+    assert doudizhu_apply_action(game2, GameActionReq(token=tokens2[bidder2], action="bid", bid=1))["action"] == "bid"
 
     bidder_state = game.private_state(tokens[game.bid_turn])
     bidder_view = ui_state(game, bidder_state, tokens[game.bid_turn])
@@ -336,6 +343,13 @@ def test_texas_contract() -> None:
     game.turn_started_at -= game.THINK_SECONDS + 1
     if state["you"].get("max_raise_to", 0) >= state["you"].get("min_raise_to", 1):
         raise_to = int(state["you"]["min_raise_to"])
+        game_direct = TexasGame(game_id="texas-smoke-apply", name="texas smoke apply", seed=11, n_seats=3)
+        direct_tokens = _join_texas(game_direct, 3)
+        direct_token = direct_tokens[game_direct.current_turn]
+        direct_state = game_direct.private_state(direct_token)
+        direct_raise_to = int(direct_state["you"]["min_raise_to"])
+        game_direct.turn_started_at -= game_direct.THINK_SECONDS + 1
+        assert texas_holdem_apply_action(game_direct, GameActionReq(token=direct_token, action="raise", amount=direct_raise_to))["action"] == "raise"
         response = generic_action(
             game.game_id, GameActionReq(token=current_token, action="raise", amount=raise_to)
         )
