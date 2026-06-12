@@ -19,6 +19,7 @@ From the repo root:
 python3 scripts/smoke_agent_api_contract.py
 python3 scripts/smoke_public_deploy_verifier.py
 python3 scripts/smoke_ui_state_docs.py
+python3 scripts/smoke_unified_frontend_actions.py
 python3 -m compileall -q backend scripts
 for f in backend/static/js/*.js; do node --check "$f" || exit 1; done
 ```

@@ -187,9 +187,8 @@ function renderZjh() {
 
 async function _zjhAction(action, extra) {
   if (!gameId || !token) { log(t('log_need_login') || 'need login', 'err'); return; }
-  const body = Object.assign({ token, action }, extra || {});
   try {
-    const r = await api("POST", `/api/games/${gameId}/zjh/action`, body);
+    const r = await gameAction(action, extra || {});
     if (r && r.result) log(`[zjh] ${action} → ${JSON.stringify(r.result)}`, 'me');
     else log(`[zjh] ${action} ok`, 'me');
     refresh();
