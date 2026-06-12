@@ -38,8 +38,6 @@ def get_json(url: str) -> dict:
 
 
 def docs_url_for(base: str) -> str:
-    if base == "https://agent-playground.space":
-        return "https://raw.githubusercontent.com/JoursBleu/ai-agent-playground/business/docs/AGENT_API.md"
     return f"{base}/docs-agent"
 
 
