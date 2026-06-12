@@ -898,6 +898,13 @@ curl -s "$BASE/api/games/$GAME_ID/events?token=$TOKEN"
 
 `/actions` 表示“当前能不能点”；`/action-schema` 表示“这个游戏稳定支持哪些动作”。UI builder 或 agent 可以先读 schema，再按 `/actions` 判断 enabled。
 
+契约细节：
+
+- `/action-schema.actions[].id` 必须唯一。
+- `/actions.actions[]` 里的 visible action 可以重复 `id`，只要 `params` 不同。例如斗地主叫分可以同时有多个 `id="bid"`，分别用 `params.bid=0/1/2/3` 区分。
+- visible action 的 `{id, params}` 签名必须唯一。
+- 每个 visible action 的 `id` 都必须出现在 `/action-schema.actions[].id` 里。
+
 ```bash
 curl -s "$BASE/api/games/$GAME_ID/action-schema"
 ```
