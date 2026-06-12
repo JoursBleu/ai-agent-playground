@@ -5,9 +5,12 @@ from __future__ import annotations
 
 import os
 from contextlib import contextmanager
+from pathlib import Path
 
 from verify_public_agent_contract import env_enabled, maybe_create_demo_room, verify_action_contract, verify_legacy_docs
 from verify_public_deploy import slow_checks, slow_threshold_ms
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 @contextmanager
@@ -98,6 +101,16 @@ def test_legacy_docs_helper() -> None:
 
 
 
+def test_preflight_mentions_unified_frontend_actions() -> None:
+    command = "python3 scripts/smoke_unified_frontend_actions.py"
+    script = ROOT / "scripts/smoke_unified_frontend_actions.py"
+    assert script.exists(), script
+    for rel in ("README.md", "docs/DEPLOYMENT.md"):
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        assert command in text, f"{rel} missing {command}"
+
+
+
 def test_action_contract_helper() -> None:
     ui_actions = [
         {"id": "bid", "enabled": True, "params": {"bid": 1}},
@@ -146,6 +159,7 @@ def main() -> int:
     test_slow_threshold_helpers()
     test_optional_demo_flags()
     test_legacy_docs_helper()
+    test_preflight_mentions_unified_frontend_actions()
     test_action_contract_helper()
     print("public verifier helper smoke: ok")
     return 0
