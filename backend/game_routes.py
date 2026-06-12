@@ -22,7 +22,7 @@ from .auth import db as auth_db
 from .auth.deps import CurrentUser, require_admin, require_user
 from .doudizhu.game import Game, GameError
 from .doudizhu.hints import find_legal_hint
-from .game_interface import get_game_interface, interface_names
+from .game_interface import event_log_for, get_game_interface, interface_names
 from .game_state import GAME_USERS, GAMES, LOCK, USER_ROOM, game_type, release_user_room
 from .settlement import maybe_settle
 from .texas_holdem.game import TexasError, TexasGame
@@ -277,25 +277,10 @@ def action_descriptors(game, state: dict, token: Optional[str]) -> list[dict]:
     return _doudizhu_actions(state, token)
 
 
-def _event_log(gt: str, state: dict) -> list[dict]:
-    events: list[dict] = []
-    for idx, h in enumerate(state.get("history") or []):
-        item = dict(h)
-        item.setdefault("index", idx)
-        item.setdefault("game_type", gt)
-        if gt == "texas_holdem":
-            item.setdefault("type", item.get("action") or "action")
-        else:
-            item.setdefault("type", "pass" if not item.get("cards") else "play")
-            item.setdefault("action", item["type"])
-        events.append(item)
-    return events
-
-
 def ui_state(game, state: dict, token: Optional[str]) -> dict:
     """Machine-readable view model: every important visual region is structured."""
     gt = game_type(game)
-    event_log = _event_log(gt, state)
+    event_log = event_log_for(gt, state)
     common = {
         "schema_version": AGENT_API_SCHEMA_VERSION,
         "game_id": state.get("game_id"),
@@ -620,7 +605,7 @@ def get_events(game_id: str, token: Optional[str] = None, spectator: Optional[st
         "game_id": game_id,
         "game_type": game_type(game),
         "phase": state.get("phase"),
-        "events": _event_log(game_type(game), state),
+        "events": event_log_for(game_type(game), state),
     }
 
 

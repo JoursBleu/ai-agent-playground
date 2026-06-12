@@ -84,3 +84,19 @@ def get_game_interface(game_type: str) -> GameInterface:
 
 def interface_names() -> list[str]:
     return sorted(INTERFACES)
+
+
+def event_log_for(game_type: str, state: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return a normalized event log for an engine state snapshot."""
+    events: list[dict[str, Any]] = []
+    for idx, history_item in enumerate(state.get("history") or []):
+        item = dict(history_item)
+        item.setdefault("index", idx)
+        item.setdefault("game_type", game_type)
+        if game_type == "texas_holdem":
+            item.setdefault("type", item.get("action") or "action")
+        else:
+            item.setdefault("type", "pass" if not item.get("cards") else "play")
+            item.setdefault("action", item["type"])
+        events.append(item)
+    return events
