@@ -37,7 +37,7 @@ def slow_threshold_ms() -> int:
     return value
 
 
-def run_json(cmd: list[str]) -> tuple[dict, int]:
+def run_text(cmd: list[str]) -> tuple[str, int]:
     started = time.monotonic()
     proc = subprocess.run(cmd, cwd=str(ROOT), text=True, capture_output=True)
     duration_ms = round((time.monotonic() - started) * 1000)
@@ -48,13 +48,18 @@ def run_json(cmd: list[str]) -> tuple[dict, int]:
             f"stdout:\n{proc.stdout}\n"
             f"stderr:\n{proc.stderr}"
         )
-    lines = [line for line in proc.stdout.splitlines() if line.strip()]
+    return proc.stdout, duration_ms
+
+
+def run_json(cmd: list[str]) -> tuple[dict, int]:
+    stdout, duration_ms = run_text(cmd)
+    lines = [line for line in stdout.splitlines() if line.strip()]
     if not lines:
         raise SystemExit(f"command produced no JSON output: {' '.join(cmd)}")
     try:
         return json.loads(lines[-1]), duration_ms
     except json.JSONDecodeError as exc:
-        raise SystemExit(f"failed to parse JSON from {' '.join(cmd)}: {exc}\nstdout:\n{proc.stdout}") from exc
+        raise SystemExit(f"failed to parse JSON from {' '.join(cmd)}: {exc}\nstdout:\n{stdout}") from exc
 
 
 def slow_checks(durations: dict[str, int], threshold_ms: int) -> list[dict]:
@@ -77,6 +82,9 @@ def main() -> int:
         health_cmd.append(expected)
         contract_cmd.append(expected)
 
+    frontend_stdout, frontend_ms = run_text([py, "scripts/smoke_unified_frontend_actions.py"])
+    if "unified frontend actions smoke: ok" not in frontend_stdout:
+        raise SystemExit(f"unexpected frontend action smoke output: {frontend_stdout!r}")
     health, health_ms = run_json(health_cmd)
     contract, contract_ms = run_json(contract_cmd)
     discovery, discovery_ms = run_json([py, "scripts/verify_public_discovery.py", base])
@@ -86,6 +94,7 @@ def main() -> int:
         raise SystemExit(f"commit mismatch after suite: expected {expected!r}, got {commit!r}")
 
     durations = {
+        "frontend_actions": frontend_ms,
         "health": health_ms,
         "agent_contract": contract_ms,
         "discovery": discovery_ms,
@@ -101,6 +110,7 @@ def main() -> int:
         "slow_threshold_ms": threshold_ms,
         "slow_checks": slow_checks(durations, threshold_ms),
         "checks": {
+            "frontend_actions": {"ok": True, "duration_ms": frontend_ms},
             "health": {**health, "duration_ms": health_ms},
             "agent_contract": {**contract, "duration_ms": contract_ms},
             "discovery": {**discovery, "duration_ms": discovery_ms},
