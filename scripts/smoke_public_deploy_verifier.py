@@ -35,7 +35,7 @@ def assert_exits(fn, needle: str) -> None:
     raise AssertionError("expected SystemExit")
 
 
-def main() -> int:
+def test_slow_threshold_helpers() -> None:
     with env_var("AAP_VERIFY_SLOW_MS", None):
         assert slow_threshold_ms() == 5000
     with env_var("AAP_VERIFY_SLOW_MS", "0"):
@@ -52,6 +52,9 @@ def main() -> int:
         {"check": "b", "duration_ms": 5, "threshold_ms": 5},
     ]
 
+
+
+def test_optional_demo_flags() -> None:
     with env_var("AAP_VERIFY_CREATE_DEMO", None):
         assert env_enabled("AAP_VERIFY_CREATE_DEMO") is False
         assert maybe_create_demo_room("https://example.invalid") == {
@@ -68,6 +71,9 @@ def main() -> int:
     with env_var("AAP_VERIFY_CREATE_DEMO", "0"):
         assert env_enabled("AAP_VERIFY_CREATE_DEMO") is False
 
+
+
+def test_action_contract_helper() -> None:
     ui_actions = [
         {"id": "bid", "enabled": True, "params": {"bid": 1}},
         {"id": "bid", "enabled": True, "params": {"bid": 2}},
@@ -110,6 +116,11 @@ def main() -> int:
         "visible actions missing from schema",
     )
 
+
+def main() -> int:
+    test_slow_threshold_helpers()
+    test_optional_demo_flags()
+    test_action_contract_helper()
     print("public verifier helper smoke: ok")
     return 0
 
