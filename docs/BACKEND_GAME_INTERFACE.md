@@ -10,6 +10,8 @@
 - `INTERFACES` / `interface_names()`: supported game-type registry used by `/api/capabilities`.
 - `GameInterface.action_schema()`: stable action list for `/action-schema.actions`.
 - `GameInterface.action_schema_response(...)`: full `/api/games/{game_id}/action-schema` response.
+- `GameInterface.action_descriptors(...)`: current visible action handles for `/actions` and `/ui-state.actions`.
+- `GameInterface.apply_action(...)`: normalized game mutation dispatch used by unified `POST /action`.
 - `event_log_for(game_type, state)`: normalized `event_log` / `/events` representation.
 - `base_ui_state(...)`: common `/ui-state` fields shared by all games.
 - `table_view_for(game_type, state, event_log)`: per-game `/ui-state.table` fields.
@@ -18,7 +20,7 @@
 
 - FastAPI paths, request/response models, and auth dependencies.
 - Room lookup and lifecycle side effects (`maybe_settle`, leave/disband/restart, chat).
-- Temporary dispatch glue until engine-specific action handlers move behind the interface.
+- HTTP error translation around interface/engine exceptions.
 
 ## Rules for future changes
 
@@ -31,9 +33,13 @@
 
 ## Next extraction targets
 
-- Move `action_descriptors(...)` / legal-action generation behind `GameInterface`.
-- Move `apply_generic_action(...)` dispatch behind `GameInterface`.
-- Introduce a small engine adapter shape such as:
+`action_descriptors(...)` and unified `apply_generic_action(...)` now delegate through `GameInterface`. Next useful seams:
+
+- Rename the current metadata-centric `GameInterface` into a clearer adapter shape, or introduce a separate adapter object if the module grows.
+- Move game-type-specific exception translation closer to the interface so routes do not need to import every engine error class.
+- Add a new-game checklist that starts from a `GameInterface` entry before touching routes.
+
+Possible longer-term adapter shape:
 
 ```python
 class GameAdapter(Protocol):
