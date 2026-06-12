@@ -109,7 +109,15 @@ _install_auth_stubs()
 from backend.doudizhu.game import Game as DoudizhuGame, Phase as DoudizhuPhase  # noqa: E402
 from backend.doudizhu.hints import find_legal_hint  # noqa: E402
 from backend.texas_holdem.game import TexasGame  # noqa: E402
-from backend.game_interface import base_ui_state, event_log_for, get_game_interface, interface_names, table_view_for  # noqa: E402
+from backend.game_interface import (
+    base_ui_state,
+    doudizhu_legal_actions,
+    event_log_for,
+    get_game_interface,
+    interface_names,
+    table_view_for,
+    texas_holdem_legal_actions,
+)  # noqa: E402
 from backend.game_routes import (  # noqa: E402
     GameActionReq,
     action_descriptors,
@@ -253,6 +261,7 @@ def test_doudizhu_contract() -> None:
     game.last_play_seat = -1
     game.last_pattern = None
     play_state = game.private_state(tokens[0])
+    assert action_descriptors(game, play_state, tokens[0]) == doudizhu_legal_actions(play_state, tokens[0])
     play_actions = action_descriptors(game, play_state, tokens[0])
     hint = next((a for a in play_actions if a["id"] == "play_hint"), None)
     assert hint and hint["enabled"] and hint["params"].get("cards")
@@ -308,6 +317,7 @@ def test_texas_contract() -> None:
     current_token = tokens[current]
     state = game.private_state(current_token)
     current_view = ui_state(game, state, current_token)
+    assert action_descriptors(game, state, current_token) == texas_holdem_legal_actions(state, current_token)
     actions_resp = get_actions(game.game_id, token=current_token)
     assert actions_resp["schema_version"] == current_view["schema_version"]
     actions = actions_resp["actions"]

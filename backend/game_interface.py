@@ -9,7 +9,9 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
+
+from .doudizhu.hints import find_legal_hint
 
 
 @dataclass(frozen=True)
@@ -18,10 +20,15 @@ class GameInterface:
 
     game_type: str
     actions: tuple[dict[str, Any], ...]
+    legal_actions: Callable[[dict[str, Any], str | None], list[dict[str, Any]]]
 
     def action_schema(self) -> list[dict[str, Any]]:
         """Return a JSON-safe action schema copy."""
         return deepcopy(list(self.actions))
+
+    def action_descriptors(self, state: dict[str, Any], token: str | None) -> list[dict[str, Any]]:
+        """Return current visible action handles for one viewer."""
+        return self.legal_actions(state, token)
 
     def action_schema_response(self, *, schema_version: str, game_id: str) -> dict[str, Any]:
         """Return the full /action-schema response for one room."""
@@ -37,6 +44,96 @@ class GameInterface:
         }
 
 
+def _base_action(action_id: str, label: str, *, enabled: bool, reason: str = "", **params: Any) -> dict[str, Any]:
+    return {
+        "id": action_id,
+        "label": label,
+        "enabled": bool(enabled),
+        "disabled_reason": "" if enabled else reason,
+        "params": params,
+    }
+
+
+def doudizhu_legal_actions(state: dict[str, Any], token: str | None) -> list[dict[str, Any]]:
+    phase = state.get("phase")
+    you = state.get("you") or {}
+    clock = state.get("turn_clock") or {}
+    is_turn = bool(you.get("is_your_turn"))
+    can_act = bool(clock.get("can_act"))
+    wait_reason = "not your turn" if not is_turn else "thinking/timeout window"
+    actions: list[dict[str, Any]] = []
+
+    if phase == "bidding":
+        current_bid = int(state.get("current_bid") or 0)
+        for value in (0, 1, 2, 3):
+            enabled = bool(token and is_turn and can_act and (value == 0 or value > current_bid))
+            reason = "bid must be 0 or greater than current bid" if value and value <= current_bid else wait_reason
+            actions.append(_base_action("bid", f"bid {value}", enabled=enabled, reason=reason, bid=value))
+        return actions
+
+    if phase == "playing":
+        must_lead = state.get("last_play_seat", -1) in (-1, you.get("seat"))
+        hand = list(you.get("hand") or [])
+        actions.append(_base_action(
+            "play_cards",
+            "play selected cards",
+            enabled=bool(token and is_turn and can_act and hand),
+            reason=wait_reason,
+            schema={"cards": "string[]"},
+        ))
+        actions.append(_base_action(
+            "pass",
+            "pass",
+            enabled=bool(token and is_turn and can_act and not must_lead),
+            reason="leader must play cards" if must_lead else wait_reason,
+            cards=[],
+        ))
+        hint = None
+        if hand:
+            try:
+                hint = find_legal_hint(
+                    hand,
+                    last_play_codes=state.get("last_play_cards") or [],
+                    must_lead=must_lead,
+                )
+            except Exception:
+                hint = None
+        if hint:
+            actions.append(_base_action(
+                "play_hint",
+                "play suggested legal cards",
+                enabled=bool(token and is_turn and can_act),
+                reason=wait_reason,
+                cards=hint["cards"],
+                pattern=hint["pattern"],
+                hint_reason=hint.get("reason", ""),
+            ))
+        return actions
+
+    return actions
+
+
+def texas_holdem_legal_actions(state: dict[str, Any], token: str | None) -> list[dict[str, Any]]:
+    you = state.get("you") or {}
+    clock = state.get("turn_clock") or {}
+    is_turn = bool(you.get("is_your_turn"))
+    can_act = bool(clock.get("can_act"))
+    base_enabled = bool(token and state.get("phase") == "playing" and is_turn and can_act)
+    reason = "not your action window"
+    call_amount = int(you.get("call_amount") or 0)
+    min_raise_to = int(you.get("min_raise_to") or 0)
+    max_raise_to = int(you.get("max_raise_to") or 0)
+    can_check = bool(you.get("can_check"))
+    can_raise = base_enabled and max_raise_to >= min_raise_to and min_raise_to > 0
+    return [
+        _base_action("fold", "fold", enabled=base_enabled, reason=reason),
+        _base_action("check", "check", enabled=base_enabled and can_check, reason="must call before checking" if not can_check else reason),
+        _base_action("call", "call", enabled=base_enabled and call_amount > 0, reason="nothing to call" if call_amount <= 0 else reason, amount=call_amount),
+        _base_action("raise", "raise", enabled=can_raise, reason="not enough chips to raise" if base_enabled else reason, min=min_raise_to, max=max_raise_to, min_amount=min_raise_to, max_amount=max_raise_to),
+        _base_action("all_in", "all-in", enabled=base_enabled and max_raise_to > 0, reason=reason, amount=max_raise_to),
+    ]
+
+
 DOUDIZHU_INTERFACE = GameInterface(
     game_type="doudizhu",
     actions=(
@@ -49,6 +146,7 @@ DOUDIZHU_INTERFACE = GameInterface(
             "execute_as": {"action": "play_cards", "cards": "<params.cards>"},
         },
     ),
+    legal_actions=doudizhu_legal_actions,
 )
 
 TEXAS_HOLDEM_INTERFACE = GameInterface(
@@ -67,6 +165,7 @@ TEXAS_HOLDEM_INTERFACE = GameInterface(
         },
         {"id": "all_in", "params": {}},
     ),
+    legal_actions=texas_holdem_legal_actions,
 )
 
 INTERFACES: dict[str, GameInterface] = {
