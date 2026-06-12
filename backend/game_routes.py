@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 from .auth import db as auth_db
 from .auth.deps import CurrentUser, require_admin, require_user
 from .doudizhu.game import Game, GameError
-from .game_interface import base_ui_state, event_log_for, get_game_interface, interface_names, table_view_for
+from .game_interface import GameActionError, base_ui_state, event_log_for, get_game_interface, interface_names, table_view_for
 from .game_state import GAME_USERS, GAMES, LOCK, USER_ROOM, game_type, release_user_room
 from .settlement import maybe_settle
 from .texas_holdem.game import TexasError, TexasGame
@@ -202,7 +202,7 @@ def apply_generic_action(game_id: str, game, req: GameActionReq) -> dict:
     """Dispatch a machine-callable action to the underlying engine."""
     try:
         return get_game_interface(game_type(game)).apply_action(game, req)
-    except (GameError, TexasError) as exc:
+    except GameActionError as exc:
         raise game_error(exc)
 
 

@@ -16,6 +16,10 @@ from .doudizhu.hints import find_legal_hint
 from .texas_holdem.game import TexasError
 
 
+class GameActionError(Exception):
+    """Stable interface-layer mutation error for route translation."""
+
+
 @dataclass(frozen=True)
 class GameInterface:
     """Stable machine-facing contract for a game type."""
@@ -35,7 +39,10 @@ class GameInterface:
 
     def apply_action(self, game: Any, req: Any) -> dict[str, Any]:
         """Apply a normalized mutation request to the underlying engine."""
-        return self.apply_action_fn(game, req)
+        try:
+            return self.apply_action_fn(game, req)
+        except (GameError, TexasError) as exc:
+            raise GameActionError(str(exc)) from exc
 
     def action_schema_response(self, *, schema_version: str, game_id: str) -> dict[str, Any]:
         """Return the full /action-schema response for one room."""
