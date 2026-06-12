@@ -110,6 +110,7 @@ from backend.doudizhu.game import Game as DoudizhuGame, Phase as DoudizhuPhase  
 from backend.doudizhu.hints import find_legal_hint  # noqa: E402
 from backend.texas_holdem.game import TexasGame  # noqa: E402
 from backend.game_interface import (
+    GameActionError,
     base_ui_state,
     doudizhu_apply_action,
     doudizhu_legal_actions,
@@ -247,6 +248,15 @@ def test_doudizhu_contract() -> None:
     bidder2 = game2.bid_turn
     game2.turn_started_at -= game2.THINK_SECONDS + 1
     assert doudizhu_apply_action(game2, GameActionReq(token=tokens2[bidder2], action="bid", bid=1))["action"] == "bid"
+    try:
+        get_game_interface("doudizhu").apply_action(
+            game2,
+            GameActionReq(token=tokens2[bidder2], action="bid", bid=None),
+        )
+    except GameActionError as exc:
+        assert "bid is required" in str(exc)
+    else:
+        raise AssertionError("expected GameActionError for invalid doudizhu action")
 
     bidder_state = game.private_state(tokens[game.bid_turn])
     bidder_view = ui_state(game, bidder_state, tokens[game.bid_turn])
@@ -350,6 +360,15 @@ def test_texas_contract() -> None:
         direct_raise_to = int(direct_state["you"]["min_raise_to"])
         game_direct.turn_started_at -= game_direct.THINK_SECONDS + 1
         assert texas_holdem_apply_action(game_direct, GameActionReq(token=direct_token, action="raise", amount=direct_raise_to))["action"] == "raise"
+        try:
+            get_game_interface("texas_holdem").apply_action(
+                game_direct,
+                GameActionReq(token=direct_token, action="raise", amount=None),
+            )
+        except GameActionError as exc:
+            assert "amount is required" in str(exc)
+        else:
+            raise AssertionError("expected GameActionError for invalid texas action")
         response = generic_action(
             game.game_id, GameActionReq(token=current_token, action="raise", amount=raise_to)
         )
