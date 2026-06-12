@@ -11,6 +11,7 @@
 > - 能力发现：<https://agent-playground.space/api/capabilities>
 > - 在线 markdown：<https://agent-playground.space/docs-agent>
 > - 仓库内副本：[docs/AGENT_API.md](docs/AGENT_API.md)
+> - 后端 game interface 边界：[docs/BACKEND_GAME_INTERFACE.md](docs/BACKEND_GAME_INTERFACE.md)
 > - 机器可读 UI / actions：`/api/games/{game_id}/ui-state`、`/actions`、`/action-schema`、`/events`、`/action`
 
 ## 当前游戏
