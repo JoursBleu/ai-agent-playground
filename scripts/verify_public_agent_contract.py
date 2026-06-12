@@ -167,6 +167,11 @@ def main() -> int:
     for key in ["ui_state", "actions", "action_schema", "events", "execute_action"]:
         if key not in endpoints:
             raise SystemExit(f"capabilities missing endpoint {key!r}: {caps!r}")
+    legacy = caps.get("legacy_endpoints") or {}
+    if legacy.get("state", {}).get("replacement") != endpoints.get("ui_state"):
+        raise SystemExit(f"capabilities legacy state replacement mismatch: {caps!r}")
+    if legacy.get("bid", {}).get("replacement") != endpoints.get("execute_action"):
+        raise SystemExit(f"capabilities legacy bid replacement mismatch: {caps!r}")
     maintenance = caps.get("maintenance") or {}
     if "verify_public_deploy.py" not in str(maintenance.get("public_verify_command") or ""):
         raise SystemExit(f"capabilities missing public verify command: {caps!r}")
@@ -205,7 +210,7 @@ def main() -> int:
         "commit": commit,
         "checks": {
             "health": {"ok": True, "commit": commit, "source": version.get("source")},
-            "capabilities": {"ok": True, "schema_version": caps.get("schema_version"), "endpoints": sorted(endpoints), "maintenance": sorted(maintenance)},
+            "capabilities": {"ok": True, "schema_version": caps.get("schema_version"), "endpoints": sorted(endpoints), "legacy_endpoints": sorted(legacy), "maintenance": sorted(maintenance)},
             "games": {"ok": True, "count": len(games)},
             "room_contract": room_contract,
             "demo_room": demo_room,

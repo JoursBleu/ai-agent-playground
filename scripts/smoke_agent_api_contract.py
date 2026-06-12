@@ -144,6 +144,8 @@ def test_health_contract() -> None:
     assert {"doudizhu", "texas_holdem"}.issubset(set(caps["games"]))
     assert caps["endpoints"]["ui_state"] == "/api/games/{game_id}/ui-state"
     assert caps["endpoints"]["execute_action"] == "/api/games/{game_id}/action"
+    assert caps["legacy_endpoints"]["state"]["replacement"] == "/api/games/{game_id}/ui-state"
+    assert caps["legacy_endpoints"]["bid"]["replacement"] == "/api/games/{game_id}/action"
     assert caps["endpoints"]["events"] == "/api/games/{game_id}/events"
     assert "verify_public_deploy.py" in caps["maintenance"]["public_verify_command"]
     assert caps["maintenance"]["deployment_runbook"] == "docs/DEPLOYMENT.md"

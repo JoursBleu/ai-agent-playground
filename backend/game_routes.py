@@ -423,6 +423,21 @@ def capabilities() -> dict:
             "execute_action": "/api/games/{game_id}/action",
             "agent_docs": "/docs-agent",
         },
+        "legacy_endpoints": {
+            "state": {
+                "path": "/api/games/{game_id}/state",
+                "replacement": "/api/games/{game_id}/ui-state",
+                "note": "Compatibility endpoint; new agents should read ui_state/actions/action_schema/events instead.",
+            },
+            "bid": {
+                "path": "/api/games/{game_id}/bid",
+                "replacement": "/api/games/{game_id}/action",
+            },
+            "play": {
+                "path": "/api/games/{game_id}/play",
+                "replacement": "/api/games/{game_id}/action",
+            },
+        },
         "maintenance": {
             "public_verify_command": "python3 scripts/verify_public_deploy.py https://agent-playground.space <commit-prefix>",
             "deployment_runbook": "docs/DEPLOYMENT.md",
