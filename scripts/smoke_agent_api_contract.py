@@ -109,7 +109,7 @@ _install_auth_stubs()
 from backend.doudizhu.game import Game as DoudizhuGame, Phase as DoudizhuPhase  # noqa: E402
 from backend.doudizhu.hints import find_legal_hint  # noqa: E402
 from backend.texas_holdem.game import TexasGame  # noqa: E402
-from backend.game_interface import event_log_for, get_game_interface, interface_names  # noqa: E402
+from backend.game_interface import base_ui_state, event_log_for, get_game_interface, interface_names  # noqa: E402
 from backend.game_routes import (  # noqa: E402
     GameActionReq,
     action_descriptors,
@@ -199,7 +199,16 @@ def test_doudizhu_contract() -> None:
     assert "event_log" in view and isinstance(view["event_log"], list)
     assert "table" in view and "seats" in view and "clock" in view
     assert game_type(game) == "doudizhu"
-    assert view["event_log"] == event_log_for("doudizhu", state)
+    expected_events = event_log_for("doudizhu", state)
+    assert view["event_log"] == expected_events
+    for key, value in base_ui_state(
+        schema_version=view["schema_version"],
+        game_type="doudizhu",
+        state=state,
+        event_log=expected_events,
+        actions=action_descriptors(game, state, tokens[0]),
+    ).items():
+        assert view[key] == value
     GAMES[game.game_id] = game
     events = get_events(game.game_id, token=tokens[0])
     assert events["schema_version"] == view["schema_version"]
@@ -269,7 +278,16 @@ def test_texas_contract() -> None:
     assert "table" in view and "actions" in view and "seats" in view
     assert "event_log" in view and isinstance(view["event_log"], list)
     assert game_type(game) == "texas_holdem"
-    assert view["event_log"] == event_log_for("texas_holdem", state)
+    expected_events = event_log_for("texas_holdem", state)
+    assert view["event_log"] == expected_events
+    for key, value in base_ui_state(
+        schema_version=view["schema_version"],
+        game_type="texas_holdem",
+        state=state,
+        event_log=expected_events,
+        actions=action_descriptors(game, state, tokens[0]),
+    ).items():
+        assert view[key] == value
     GAMES[game.game_id] = game
     events = get_events(game.game_id, token=tokens[0])
     assert events["schema_version"] == view["schema_version"]

@@ -22,7 +22,7 @@ from .auth import db as auth_db
 from .auth.deps import CurrentUser, require_admin, require_user
 from .doudizhu.game import Game, GameError
 from .doudizhu.hints import find_legal_hint
-from .game_interface import event_log_for, get_game_interface, interface_names
+from .game_interface import base_ui_state, event_log_for, get_game_interface, interface_names
 from .game_state import GAME_USERS, GAMES, LOCK, USER_ROOM, game_type, release_user_room
 from .settlement import maybe_settle
 from .texas_holdem.game import TexasError, TexasGame
@@ -281,24 +281,13 @@ def ui_state(game, state: dict, token: Optional[str]) -> dict:
     """Machine-readable view model: every important visual region is structured."""
     gt = game_type(game)
     event_log = event_log_for(gt, state)
-    common = {
-        "schema_version": AGENT_API_SCHEMA_VERSION,
-        "game_id": state.get("game_id"),
-        "game_type": gt,
-        "phase": state.get("phase"),
-        "room": {
-            "name": state.get("name"),
-            "description": state.get("description"),
-            "rule_mode": state.get("rule_mode"),
-            "owner_seat": state.get("owner_seat"),
-        },
-        "clock": state.get("turn_clock") or {},
-        "seats": state.get("players") or [],
-        "you": state.get("you"),
-        "chat": state.get("chat") or [],
-        "event_log": event_log,
-        "actions": action_descriptors(game, state, token),
-    }
+    common = base_ui_state(
+        schema_version=AGENT_API_SCHEMA_VERSION,
+        game_type=gt,
+        state=state,
+        event_log=event_log,
+        actions=action_descriptors(game, state, token),
+    )
     if gt == "texas_holdem":
         common["table"] = {
             "street": state.get("street"),

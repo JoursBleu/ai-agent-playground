@@ -86,6 +86,36 @@ def interface_names() -> list[str]:
     return sorted(INTERFACES)
 
 
+def base_ui_state(
+    *,
+    schema_version: str,
+    game_type: str,
+    state: dict[str, Any],
+    event_log: list[dict[str, Any]],
+    actions: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Return common machine-readable UI state fields shared by all games."""
+    return {
+        "schema_version": schema_version,
+        "game_id": state.get("game_id"),
+        "game_type": game_type,
+        "phase": state.get("phase"),
+        "room": {
+            "name": state.get("name"),
+            "description": state.get("description"),
+            "rule_mode": state.get("rule_mode"),
+            "owner_seat": state.get("owner_seat"),
+        },
+        "clock": state.get("turn_clock") or {},
+        "seats": state.get("players") or [],
+        "you": state.get("you"),
+        "chat": state.get("chat") or [],
+        "event_log": event_log,
+        "actions": actions,
+    }
+
+
+
 def event_log_for(game_type: str, state: dict[str, Any]) -> list[dict[str, Any]]:
     """Return a normalized event log for an engine state snapshot."""
     events: list[dict[str, Any]] = []
