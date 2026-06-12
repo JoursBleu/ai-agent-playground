@@ -71,6 +71,31 @@ def maybe_create_demo_room(base: str) -> dict:
     return {"created": True, "game_id": gid, "game_type": resp.get("game_type")}
 
 
+def verify_action_contract(ui_actions: list, actions_actions: list, schema_actions: list) -> dict:
+    """Validate visible action handles against the durable action schema."""
+    if actions_actions != ui_actions:
+        raise SystemExit(f"actions != ui-state actions: actions={actions_actions!r}, ui={ui_actions!r}")
+    schema_action_ids = [a.get("id") for a in schema_actions]
+    visible_action_ids = [a.get("id") for a in actions_actions]
+    visible_action_signatures = [
+        json.dumps({"id": a.get("id"), "params": a.get("params") or {}}, sort_keys=True)
+        for a in actions_actions
+    ]
+    schema_ids = set(schema_action_ids)
+    visible_ids = set(visible_action_ids)
+    if len(schema_action_ids) != len(schema_ids):
+        raise SystemExit(f"duplicate schema action ids: {schema_action_ids!r}")
+    if len(visible_action_signatures) != len(set(visible_action_signatures)):
+        raise SystemExit(f"duplicate visible action signatures: {visible_action_signatures!r}")
+    missing_schema_ids = sorted(visible_ids - schema_ids)
+    if missing_schema_ids:
+        raise SystemExit(f"visible actions missing from schema: {missing_schema_ids!r}")
+    return {
+        "action_count": len(ui_actions),
+        "schema_action_count": len(schema_actions),
+    }
+
+
 def verify_room_contract(base: str, gid: str) -> dict:
     ui = get_json(f"{base}/api/games/{gid}/ui-state")
     actions = get_json(f"{base}/api/games/{gid}/actions")
@@ -87,25 +112,13 @@ def verify_room_contract(base: str, gid: str) -> dict:
         raise SystemExit(f"actions missing actions list: {actions!r}")
     if not isinstance(ui.get("actions"), list):
         raise SystemExit(f"ui-state missing actions list: {ui!r}")
-    if actions.get("actions") != ui.get("actions"):
-        raise SystemExit(f"actions != ui-state actions: actions={actions!r}, ui={ui!r}")
     if not isinstance(schema.get("actions"), list):
         raise SystemExit(f"schema missing actions list: {schema!r}")
-    schema_action_ids = [a.get("id") for a in schema.get("actions") or []]
-    visible_action_ids = [a.get("id") for a in actions.get("actions") or []]
-    visible_action_signatures = [
-        json.dumps({"id": a.get("id"), "params": a.get("params") or {}}, sort_keys=True)
-        for a in actions.get("actions") or []
-    ]
-    schema_ids = set(schema_action_ids)
-    visible_ids = set(visible_action_ids)
-    if len(schema_action_ids) != len(schema_ids):
-        raise SystemExit(f"duplicate schema action ids: {schema_action_ids!r}")
-    if len(visible_action_signatures) != len(set(visible_action_signatures)):
-        raise SystemExit(f"duplicate visible action signatures: {visible_action_signatures!r}")
-    missing_schema_ids = sorted(visible_ids - schema_ids)
-    if missing_schema_ids:
-        raise SystemExit(f"visible actions missing from schema: {missing_schema_ids!r}")
+    action_summary = verify_action_contract(
+        ui_actions=ui.get("actions"),
+        actions_actions=actions.get("actions"),
+        schema_actions=schema.get("actions"),
+    )
     if schema.get("schema_version") != ui.get("schema_version"):
         raise SystemExit(
             f"schema_version mismatch: ui={ui.get('schema_version')!r}, "
@@ -131,8 +144,7 @@ def verify_room_contract(base: str, gid: str) -> dict:
         "game_id": gid,
         "schema_version": ui.get("schema_version"),
         "event_count": len(ui.get("event_log") or []),
-        "action_count": len(ui.get("actions") or []),
-        "schema_action_count": len(schema.get("actions") or []),
+        **action_summary,
         "endpoints": ["ui-state", "actions", "action-schema", "events"],
     }
 

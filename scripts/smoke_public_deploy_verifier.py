@@ -6,7 +6,7 @@ from __future__ import annotations
 import os
 from contextlib import contextmanager
 
-from verify_public_agent_contract import env_enabled, maybe_create_demo_room
+from verify_public_agent_contract import env_enabled, maybe_create_demo_room, verify_action_contract
 from verify_public_deploy import slow_checks, slow_threshold_ms
 
 
@@ -67,6 +67,48 @@ def main() -> int:
             }
     with env_var("AAP_VERIFY_CREATE_DEMO", "0"):
         assert env_enabled("AAP_VERIFY_CREATE_DEMO") is False
+
+    ui_actions = [
+        {"id": "bid", "enabled": True, "params": {"bid": 1}},
+        {"id": "bid", "enabled": True, "params": {"bid": 2}},
+    ]
+    assert verify_action_contract(
+        ui_actions=ui_actions,
+        actions_actions=list(ui_actions),
+        schema_actions=[{"id": "bid", "params": {"bid": "integer"}}],
+    ) == {"action_count": 2, "schema_action_count": 1}
+    assert_exits(
+        lambda: verify_action_contract(
+            ui_actions=ui_actions,
+            actions_actions=[ui_actions[0]],
+            schema_actions=[{"id": "bid", "params": {"bid": "integer"}}],
+        ),
+        "actions != ui-state actions",
+    )
+    assert_exits(
+        lambda: verify_action_contract(
+            ui_actions=ui_actions,
+            actions_actions=list(ui_actions),
+            schema_actions=[{"id": "bid"}, {"id": "bid"}],
+        ),
+        "duplicate schema action ids",
+    )
+    assert_exits(
+        lambda: verify_action_contract(
+            ui_actions=[ui_actions[0], ui_actions[0]],
+            actions_actions=[ui_actions[0], ui_actions[0]],
+            schema_actions=[{"id": "bid"}],
+        ),
+        "duplicate visible action signatures",
+    )
+    assert_exits(
+        lambda: verify_action_contract(
+            ui_actions=[{"id": "pass", "params": {}}],
+            actions_actions=[{"id": "pass", "params": {}}],
+            schema_actions=[{"id": "bid"}],
+        ),
+        "visible actions missing from schema",
+    )
 
     print("public verifier helper smoke: ok")
     return 0
