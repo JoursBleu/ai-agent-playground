@@ -103,12 +103,15 @@ Expected combined verification shape:
   "slow_threshold_ms": 5000,
   "slow_checks": [],
   "checks": {
+    "frontend_actions": {"ok": true, "duration_ms": 25},
     "health": {"ok": true, "duration_ms": 1200},
     "agent_contract": {"ok": true, "duration_ms": 3200},
     "discovery": {"ok": true, "duration_ms": 3600}
   }
 }
 ```
+
+`frontend_actions` is a local preflight inside the public deploy verifier. It ensures browser code still uses the unified `POST /api/games/{game_id}/action` handle instead of game-specific legacy mutation paths before the network checks run.
 
 `duration_ms` is informational. Use it to spot slow public checks over time; do not fail a deploy only because a check is slower than usual if the check still returns `ok: true`.
 
