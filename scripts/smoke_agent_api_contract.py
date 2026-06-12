@@ -204,9 +204,12 @@ def test_doudizhu_contract() -> None:
     assert events["schema_version"] == view["schema_version"]
     assert events["events"] == view["event_log"]
     schema = get_action_schema(game.game_id)
+    assert schema == get_game_interface("doudizhu").action_schema_response(
+        schema_version=view["schema_version"],
+        game_id=game.game_id,
+    )
     assert schema["schema_version"] == view["schema_version"]
     assert schema["events_endpoint"].endswith(f"/{game.game_id}/events")
-    assert schema["actions"] == get_game_interface("doudizhu").action_schema()
     schema_action_ids = [a["id"] for a in schema["actions"]]
     schema_ids = set(schema_action_ids)
     assert len(schema_action_ids) == len(schema_ids)
@@ -270,9 +273,12 @@ def test_texas_contract() -> None:
     assert events["schema_version"] == view["schema_version"]
     assert events["events"] == view["event_log"]
     schema = get_action_schema(game.game_id)
+    assert schema == get_game_interface("texas_holdem").action_schema_response(
+        schema_version=view["schema_version"],
+        game_id=game.game_id,
+    )
     assert schema["schema_version"] == view["schema_version"]
     assert schema["events_endpoint"].endswith(f"/{game.game_id}/events")
-    assert schema["actions"] == get_game_interface("texas_holdem").action_schema()
     raise_schema = next(a for a in schema["actions"] if a["id"] == "raise")
     assert {"amount", "min", "max"}.issubset(set(raise_schema["params"].keys()))
 

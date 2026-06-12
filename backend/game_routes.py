@@ -632,18 +632,10 @@ def get_action_schema(game_id: str) -> dict:
     stable operation contract for the room's game type.
     """
     game = get_game_or_404(game_id)
-    gt = game_type(game)
-    common = {
-        "schema_version": AGENT_API_SCHEMA_VERSION,
-        "game_id": game_id,
-        "game_type": gt,
-        "execute_endpoint": f"/api/games/{game_id}/action",
-        "state_endpoint": f"/api/games/{game_id}/ui-state",
-        "actions_endpoint": f"/api/games/{game_id}/actions",
-        "events_endpoint": f"/api/games/{game_id}/events",
-    }
-    common["actions"] = get_game_interface(gt).action_schema()
-    return common
+    return get_game_interface(game_type(game)).action_schema_response(
+        schema_version=AGENT_API_SCHEMA_VERSION,
+        game_id=game_id,
+    )
 
 
 @router.post("/api/games/{game_id}/action")

@@ -23,6 +23,19 @@ class GameInterface:
         """Return a JSON-safe action schema copy."""
         return deepcopy(list(self.actions))
 
+    def action_schema_response(self, *, schema_version: str, game_id: str) -> dict[str, Any]:
+        """Return the full /action-schema response for one room."""
+        return {
+            "schema_version": schema_version,
+            "game_id": game_id,
+            "game_type": self.game_type,
+            "execute_endpoint": f"/api/games/{game_id}/action",
+            "state_endpoint": f"/api/games/{game_id}/ui-state",
+            "actions_endpoint": f"/api/games/{game_id}/actions",
+            "events_endpoint": f"/api/games/{game_id}/events",
+            "actions": self.action_schema(),
+        }
+
 
 DOUDIZHU_INTERFACE = GameInterface(
     game_type="doudizhu",
