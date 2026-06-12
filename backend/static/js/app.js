@@ -345,31 +345,12 @@ async function _refreshMeQuiet() {
 }
 
 
-async function fetchLegacyState() {
-  let url;
-  if (token) {
-    url = `/api/games/${gameId}/state?token=${encodeURIComponent(token)}`;
-  } else if (spectatorToken) {
-    url = `/api/games/${gameId}/state?spectator=${encodeURIComponent(spectatorToken)}`;
-  } else {
-    url = `/api/games/${gameId}/state`;
-  }
-  return await api("GET", url);
-}
-
 async function refresh() {
   if (!gameId) return;
   try {
-    let ui = null;
-    try {
-      ui = await fetchUiState();
-      state = normalizeUiStateForLegacyRender(ui);
-      renderAgentApiPanel(ui);
-    } catch (uiErr) {
-      const legacy = await fetchLegacyState();
-      state = legacy;
-      renderAgentApiPanel(null);
-    }
+    const ui = await fetchUiState();
+    state = normalizeUiStateForLegacyRender(ui);
+    renderAgentApiPanel(ui);
     if (state && state.phase !== _aap_lastGamePhase) {
       if (state.phase === 'finished') _refreshMeQuiet();
       _aap_lastGamePhase = state.phase;
