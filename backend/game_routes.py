@@ -22,7 +22,7 @@ from .auth import db as auth_db
 from .auth.deps import CurrentUser, require_admin, require_user
 from .doudizhu.game import Game, GameError
 from .doudizhu.hints import find_legal_hint
-from .game_interface import base_ui_state, event_log_for, get_game_interface, interface_names
+from .game_interface import base_ui_state, event_log_for, get_game_interface, interface_names, table_view_for
 from .game_state import GAME_USERS, GAMES, LOCK, USER_ROOM, game_type, release_user_room
 from .settlement import maybe_settle
 from .texas_holdem.game import TexasError, TexasGame
@@ -288,36 +288,7 @@ def ui_state(game, state: dict, token: Optional[str]) -> dict:
         event_log=event_log,
         actions=action_descriptors(game, state, token),
     )
-    if gt == "texas_holdem":
-        common["table"] = {
-            "street": state.get("street"),
-            "round_no": state.get("round_no"),
-            "dealer_seat": state.get("dealer_seat"),
-            "current_turn": state.get("current_turn"),
-            "community": state.get("community") or [],
-            "pot": state.get("pot"),
-            "current_bet": state.get("current_bet"),
-            "small_blind": state.get("small_blind"),
-            "big_blind": state.get("big_blind"),
-            "winners": state.get("winners") or [],
-            "showdown": state.get("last_showdown") or [],
-            "history": state.get("history") or [],
-            "event_log": event_log,
-        }
-    else:
-        common["table"] = {
-            "bid_turn": state.get("bid_turn"),
-            "current_bid": state.get("current_bid"),
-            "landlord_seat": state.get("landlord_seat"),
-            "current_turn": state.get("current_turn"),
-            "bottom_cards": state.get("bottom_cards") or [],
-            "last_play_seat": state.get("last_play_seat"),
-            "last_play_cards": state.get("last_play_cards") or [],
-            "last_play_category": state.get("last_play_category"),
-            "history": state.get("history") or [],
-            "event_log": event_log,
-            "winner_seat": state.get("winner_seat"),
-        }
+    common["table"] = table_view_for(gt, state, event_log)
     return common
 
 

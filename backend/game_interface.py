@@ -116,6 +116,39 @@ def base_ui_state(
 
 
 
+def table_view_for(game_type: str, state: dict[str, Any], event_log: list[dict[str, Any]]) -> dict[str, Any]:
+    """Return the game-specific table section of /ui-state."""
+    if game_type == "texas_holdem":
+        return {
+            "street": state.get("street"),
+            "round_no": state.get("round_no"),
+            "dealer_seat": state.get("dealer_seat"),
+            "current_turn": state.get("current_turn"),
+            "community": state.get("community") or [],
+            "pot": state.get("pot"),
+            "current_bet": state.get("current_bet"),
+            "small_blind": state.get("small_blind"),
+            "big_blind": state.get("big_blind"),
+            "winners": state.get("winners") or [],
+            "showdown": state.get("last_showdown") or [],
+            "history": state.get("history") or [],
+            "event_log": event_log,
+        }
+    return {
+        "bid_turn": state.get("bid_turn"),
+        "current_bid": state.get("current_bid"),
+        "landlord_seat": state.get("landlord_seat"),
+        "current_turn": state.get("current_turn"),
+        "bottom_cards": state.get("bottom_cards") or [],
+        "last_play_seat": state.get("last_play_seat"),
+        "last_play_cards": state.get("last_play_cards") or [],
+        "last_play_category": state.get("last_play_category"),
+        "history": state.get("history") or [],
+        "event_log": event_log,
+        "winner_seat": state.get("winner_seat"),
+    }
+
+
 def event_log_for(game_type: str, state: dict[str, Any]) -> list[dict[str, Any]]:
     """Return a normalized event log for an engine state snapshot."""
     events: list[dict[str, Any]] = []

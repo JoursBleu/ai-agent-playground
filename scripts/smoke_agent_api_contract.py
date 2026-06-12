@@ -109,7 +109,7 @@ _install_auth_stubs()
 from backend.doudizhu.game import Game as DoudizhuGame, Phase as DoudizhuPhase  # noqa: E402
 from backend.doudizhu.hints import find_legal_hint  # noqa: E402
 from backend.texas_holdem.game import TexasGame  # noqa: E402
-from backend.game_interface import base_ui_state, event_log_for, get_game_interface, interface_names  # noqa: E402
+from backend.game_interface import base_ui_state, event_log_for, get_game_interface, interface_names, table_view_for  # noqa: E402
 from backend.game_routes import (  # noqa: E402
     GameActionReq,
     action_descriptors,
@@ -209,6 +209,7 @@ def test_doudizhu_contract() -> None:
         actions=action_descriptors(game, state, tokens[0]),
     ).items():
         assert view[key] == value
+    assert view["table"] == table_view_for("doudizhu", state, expected_events)
     GAMES[game.game_id] = game
     events = get_events(game.game_id, token=tokens[0])
     assert events["schema_version"] == view["schema_version"]
@@ -288,6 +289,7 @@ def test_texas_contract() -> None:
         actions=action_descriptors(game, state, tokens[0]),
     ).items():
         assert view[key] == value
+    assert view["table"] == table_view_for("texas_holdem", state, expected_events)
     GAMES[game.game_id] = game
     events = get_events(game.game_id, token=tokens[0])
     assert events["schema_version"] == view["schema_version"]
