@@ -41,6 +41,13 @@ For this repo:
   - `enabled`: boolean
   - `disabled_reason`: machine-readable enough to debug
   - `params`: example/default payload fields when relevant
+- Do not require visible action IDs to be unique.  Some games intentionally show
+  multiple choices with the same operation handle and different params, e.g.
+  Doudizhu `bid` actions for `params.bid = 0/1/2/3`.  The stable uniqueness rule
+  is:
+  - `/action-schema.actions[].id` must be unique.
+  - visible action signatures `{id, params}` must be unique.
+  - every visible action `id` must appear in `/action-schema`.
 
 ### 3. Action schema should be the durable contract
 
