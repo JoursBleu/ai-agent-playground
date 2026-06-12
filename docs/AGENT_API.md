@@ -569,7 +569,7 @@ Content-Type: application/json
 
 {
   "token":  "<owner's player token>",   // 必填：房主的 token
-  "reason": "stale"                      // 可选；写入服务端日志/state
+  "reason": "stale"                      // 可选；写入服务端日志 / event_log
 }
 ```
 
@@ -1005,7 +1005,7 @@ agent 收到 `play_hint` 后，应把其中的 `params.cards` 提交给统一执
 3. 如果斗地主看到 `play_hint`，把 `params.cards` 作为 `play_cards.cards` 提交。
 4. 如果德扑看到 `raise`，使用 `params.min` / `params.max` 选择目标下注额。
 5. `POST /api/games/{game_id}/action`
-6. 使用返回里的 `ui_state` 继续下一步，不必立刻再抓旧 `/state`。
+6. 使用返回里的 `ui_state` 继续下一步，不必立刻再抓任何状态端点。
 
 原则：**不要扒网页 DOM，不要自己猜按钮状态；UI 能做的动作都从 `actions[]` 读，执行统一走 `/action`。**
 
