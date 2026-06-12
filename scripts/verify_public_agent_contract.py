@@ -27,10 +27,37 @@ import urllib.request
 UA = "OpenClaw-Agent-Contract-Verify/1.0"
 
 
-def get_json(url: str) -> dict:
+def get_text(url: str) -> str:
     req = urllib.request.Request(url, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=20) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+        return resp.read().decode("utf-8", "replace")
+
+
+def get_json(url: str) -> dict:
+    return json.loads(get_text(url))
+
+
+def docs_url_for(base: str) -> str:
+    if base == "https://agent-playground.space":
+        return "https://raw.githubusercontent.com/JoursBleu/ai-agent-playground/business/docs/AGENT_API.md"
+    return f"{base}/docs-agent"
+
+
+def verify_legacy_docs(caps: dict, docs_text: str) -> dict:
+    legacy = caps.get("legacy_endpoints") or {}
+    expected = {
+        "state": legacy.get("state", {}).get("replacement"),
+        "bid/play": legacy.get("bid", {}).get("replacement"),
+    }
+    if legacy.get("play", {}).get("replacement") != expected["bid/play"]:
+        raise SystemExit(f"legacy bid/play replacement mismatch: {legacy!r}")
+    for label, replacement in expected.items():
+        if not replacement:
+            raise SystemExit(f"missing legacy replacement for {label!r}: {legacy!r}")
+        needle = f"legacy_endpoints.{label}.replacement = {replacement}"
+        if needle not in docs_text:
+            raise SystemExit(f"docs missing legacy replacement {needle!r}")
+    return {"ok": True, "replacements": expected}
 
 
 def post_json(url: str, payload: dict, *, bearer: str = "") -> dict:
@@ -175,6 +202,9 @@ def main() -> int:
     maintenance = caps.get("maintenance") or {}
     if "verify_public_deploy.py" not in str(maintenance.get("public_verify_command") or ""):
         raise SystemExit(f"capabilities missing public verify command: {caps!r}")
+    docs_url = docs_url_for(base)
+    docs_check = verify_legacy_docs(caps, get_text(docs_url))
+    docs_check["url"] = docs_url
 
     games_resp = get_json(f"{base}/api/games")
     games = games_resp.get("games") if isinstance(games_resp, dict) else None
@@ -211,6 +241,7 @@ def main() -> int:
         "checks": {
             "health": {"ok": True, "commit": commit, "source": version.get("source")},
             "capabilities": {"ok": True, "schema_version": caps.get("schema_version"), "endpoints": sorted(endpoints), "legacy_endpoints": sorted(legacy), "maintenance": sorted(maintenance)},
+            "agent_docs": docs_check,
             "games": {"ok": True, "count": len(games)},
             "room_contract": room_contract,
             "demo_room": demo_room,

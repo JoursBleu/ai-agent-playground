@@ -810,7 +810,7 @@ curl -s "$BASE/api/capabilities"
 - `schema_version`
 - 支持的 `games`
 - 端点模板：`ui_state`、`actions`、`action_schema`、`events`、`execute_action`
-- legacy 兼容入口替代关系：`legacy_endpoints.state.replacement = /ui-state`，`legacy_endpoints.bid/play.replacement = /action`
+- legacy 兼容入口替代关系：`legacy_endpoints.state.replacement = /api/games/{game_id}/ui-state`，`legacy_endpoints.bid/play.replacement = /api/games/{game_id}/action`
 - 维护入口：`maintenance.public_verify_command`、`maintenance.deployment_runbook`
 - 约定原则：不要扒 DOM；状态读 `/ui-state`；动作走 `/action`；事件流读 `/events`
 

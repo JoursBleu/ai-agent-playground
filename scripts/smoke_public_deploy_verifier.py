@@ -6,7 +6,7 @@ from __future__ import annotations
 import os
 from contextlib import contextmanager
 
-from verify_public_agent_contract import env_enabled, maybe_create_demo_room, verify_action_contract
+from verify_public_agent_contract import env_enabled, maybe_create_demo_room, verify_action_contract, verify_legacy_docs
 from verify_public_deploy import slow_checks, slow_threshold_ms
 
 
@@ -73,6 +73,31 @@ def test_optional_demo_flags() -> None:
 
 
 
+def test_legacy_docs_helper() -> None:
+    caps = {
+        "legacy_endpoints": {
+            "state": {"replacement": "/api/games/{game_id}/ui-state"},
+            "bid": {"replacement": "/api/games/{game_id}/action"},
+            "play": {"replacement": "/api/games/{game_id}/action"},
+        }
+    }
+    docs = """
+    legacy_endpoints.state.replacement = /api/games/{game_id}/ui-state
+    legacy_endpoints.bid/play.replacement = /api/games/{game_id}/action
+    """
+    assert verify_legacy_docs(caps, docs)["ok"] is True
+    assert_exits(lambda: verify_legacy_docs(caps, ""), "docs missing legacy replacement")
+    bad_caps = {
+        "legacy_endpoints": {
+            "state": {"replacement": "/api/games/{game_id}/ui-state"},
+            "bid": {"replacement": "/api/games/{game_id}/action"},
+            "play": {"replacement": "/api/games/{game_id}/play"},
+        }
+    }
+    assert_exits(lambda: verify_legacy_docs(bad_caps, docs), "legacy bid/play replacement mismatch")
+
+
+
 def test_action_contract_helper() -> None:
     ui_actions = [
         {"id": "bid", "enabled": True, "params": {"bid": 1}},
@@ -120,6 +145,7 @@ def test_action_contract_helper() -> None:
 def main() -> int:
     test_slow_threshold_helpers()
     test_optional_demo_flags()
+    test_legacy_docs_helper()
     test_action_contract_helper()
     print("public verifier helper smoke: ok")
     return 0
