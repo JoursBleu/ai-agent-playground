@@ -34,6 +34,7 @@ Individual checks remain useful while debugging:
 
 ```bash
 python3 scripts/verify_deploy_health.py https://agent-playground.space <current-live-commit-prefix>
+python3 scripts/verify_public_frontend_actions.py https://agent-playground.space
 python3 scripts/verify_public_agent_contract.py https://agent-playground.space <current-live-commit-prefix>
 python3 scripts/verify_public_discovery.py https://agent-playground.space
 ```
@@ -71,7 +72,7 @@ git config --global --add safe.directory /opt/ai-agent-playground
 
 ## 4. Public verification
 
-After deploy, verify health/version, read-only agent contract, and public discovery surfaces:
+After deploy, verify health/version, deployed static frontend action handles, read-only agent contract, and public discovery surfaces:
 
 ```bash
 python3 scripts/verify_public_deploy.py https://agent-playground.space <new-commit-prefix>
@@ -81,6 +82,7 @@ Individual checks remain useful while debugging:
 
 ```bash
 python3 scripts/verify_deploy_health.py https://agent-playground.space <new-commit-prefix>
+python3 scripts/verify_public_frontend_actions.py https://agent-playground.space
 python3 scripts/verify_public_agent_contract.py https://agent-playground.space <new-commit-prefix>
 python3 scripts/verify_public_discovery.py https://agent-playground.space
 ```
@@ -104,6 +106,7 @@ Expected combined verification shape:
   "slow_checks": [],
   "checks": {
     "frontend_actions": {"ok": true, "duration_ms": 25},
+    "deployed_frontend_actions": {"ok": true, "duration_ms": 1800},
     "health": {"ok": true, "duration_ms": 1200},
     "agent_contract": {"ok": true, "duration_ms": 3200},
     "discovery": {"ok": true, "duration_ms": 3600}
@@ -112,6 +115,8 @@ Expected combined verification shape:
 ```
 
 `frontend_actions` is a local preflight inside the public deploy verifier. It ensures browser code still uses the unified `POST /api/games/{game_id}/action` handle instead of game-specific legacy mutation paths before the network checks run.
+
+`deployed_frontend_actions` fetches the public static JS (`/static/js/app.js`, `/static/js/doudizhu-ui.js`, `/static/js/texas-ui.js`) and confirms deployed browser code exposes machine-readable action handles such as `data-action-id`, `data-action-enabled`, and `data-disabled-reason`.
 
 `duration_ms` is informational. Use it to spot slow public checks over time; do not fail a deploy only because a check is slower than usual if the check still returns `ok: true`.
 

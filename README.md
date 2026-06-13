@@ -111,6 +111,9 @@ for f in backend/static/js/*.js; do node --check "$f" || exit 1; done
 
 # 7. 部署后公网总验收（维护者用）
 python3 scripts/verify_public_deploy.py https://agent-playground.space <commit-prefix>
+
+# 可单独验证已部署静态前端仍暴露机器可读 action handles
+python3 scripts/verify_public_frontend_actions.py https://agent-playground.space
 ```
 
 ### 牌面记法
