@@ -123,7 +123,6 @@ from backend.game_interface import (
 )  # noqa: E402
 from backend.game_routes import (  # noqa: E402
     GameActionReq,
-    action_descriptors,
     apply_generic_action,
     capabilities,
     game_type,
@@ -217,7 +216,7 @@ def test_doudizhu_contract() -> None:
         game_type="doudizhu",
         state=state,
         event_log=expected_events,
-        actions=action_descriptors(game, state, tokens[0]),
+        actions=get_game_interface("doudizhu").action_descriptors(state, tokens[0]),
     ).items():
         assert view[key] == value
     assert view["table"] == table_view_for("doudizhu", state, expected_events)
@@ -278,8 +277,8 @@ def test_doudizhu_contract() -> None:
     game.last_play_seat = -1
     game.last_pattern = None
     play_state = game.private_state(tokens[0])
-    assert action_descriptors(game, play_state, tokens[0]) == doudizhu_legal_actions(play_state, tokens[0])
-    play_actions = action_descriptors(game, play_state, tokens[0])
+    assert get_game_interface("doudizhu").action_descriptors(play_state, tokens[0]) == doudizhu_legal_actions(play_state, tokens[0])
+    play_actions = get_game_interface("doudizhu").action_descriptors(play_state, tokens[0])
     hint = next((a for a in play_actions if a["id"] == "play_hint"), None)
     assert hint and hint["enabled"] and hint["params"].get("cards")
     assert hint["params"].get("pattern", {}).get("category")
@@ -312,7 +311,7 @@ def test_texas_contract() -> None:
         game_type="texas_holdem",
         state=state,
         event_log=expected_events,
-        actions=action_descriptors(game, state, tokens[0]),
+        actions=get_game_interface("texas_holdem").action_descriptors(state, tokens[0]),
     ).items():
         assert view[key] == value
     assert view["table"] == table_view_for("texas_holdem", state, expected_events)
@@ -334,7 +333,7 @@ def test_texas_contract() -> None:
     current_token = tokens[current]
     state = game.private_state(current_token)
     current_view = ui_state(game, state, current_token)
-    assert action_descriptors(game, state, current_token) == texas_holdem_legal_actions(state, current_token)
+    assert get_game_interface("texas_holdem").action_descriptors(state, current_token) == texas_holdem_legal_actions(state, current_token)
     actions_resp = get_actions(game.game_id, token=current_token)
     assert actions_resp["schema_version"] == current_view["schema_version"]
     actions = actions_resp["actions"]

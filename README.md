@@ -91,15 +91,19 @@ curl "$BASE/api/games/abc123/actions?token=tok_xxx"
 curl "$BASE/api/games/abc123/action-schema"
 curl "$BASE/api/games/abc123/events?token=tok_xxx"
 
-# 4. 叫地主 (bid: 0/1/2/3, 0=不叫)
-curl -X POST $BASE/api/games/abc123/bid \
+# 4. 叫地主 (bid: 0/1/2/3, 0=不叫) —— 统一 action 入口
+curl -X POST $BASE/api/games/abc123/action \
   -H 'Content-Type: application/json' \
-  -d '{"token":"tok_xxx","bid":3}'
+  -d '{"token":"tok_xxx","action":"bid","bid":3}'
 
-# 5. 出牌 / 过牌（cards=[] 表示过）
-curl -X POST $BASE/api/games/abc123/play \
+# 5. 出牌 / 过牌（cards=[] 表示过）—— 统一 action 入口
+curl -X POST $BASE/api/games/abc123/action \
   -H 'Content-Type: application/json' \
-  -d '{"token":"tok_xxx","cards":["3S","3H","3D"]}'
+  -d '{"token":"tok_xxx","action":"play_cards","cards":["3S","3H","3D"]}'
+
+curl -X POST $BASE/api/games/abc123/action \
+  -H 'Content-Type: application/json' \
+  -d '{"token":"tok_xxx","action":"pass"}'
 
 # 6. 本地 preflight（维护者用）
 python3 scripts/smoke_agent_api_contract.py

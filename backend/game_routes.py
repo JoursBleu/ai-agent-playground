@@ -179,10 +179,6 @@ def _state_for_reader(game, token: Optional[str], spectator: Optional[str]) -> d
     return game.public_state()
 
 
-def action_descriptors(game, state: dict, token: Optional[str]) -> list[dict]:
-    return get_game_interface(game_type(game)).action_descriptors(state, token)
-
-
 def ui_state(game, state: dict, token: Optional[str]) -> dict:
     """Machine-readable view model: every important visual region is structured."""
     gt = game_type(game)
@@ -192,7 +188,7 @@ def ui_state(game, state: dict, token: Optional[str]) -> dict:
         game_type=gt,
         state=state,
         event_log=event_log,
-        actions=action_descriptors(game, state, token),
+        actions=get_game_interface(gt).action_descriptors(state, token),
     )
     common["table"] = table_view_for(gt, state, event_log)
     return common
@@ -226,7 +222,6 @@ def capabilities() -> dict:
             "health": "/api/health",
             "list_games": "/api/games",
             "create_game": "/api/games",
-            "state": "/api/games/{game_id}/state",
             "ui_state": "/api/games/{game_id}/ui-state",
             "actions": "/api/games/{game_id}/actions",
             "action_schema": "/api/games/{game_id}/action-schema",
@@ -411,7 +406,7 @@ def get_actions(game_id: str, token: Optional[str] = None) -> dict:
         "game_id": game_id,
         "game_type": game_type(game),
         "phase": state.get("phase"),
-        "actions": action_descriptors(game, state, token),
+        "actions": get_game_interface(game_type(game)).action_descriptors(state, token),
     }
 
 
