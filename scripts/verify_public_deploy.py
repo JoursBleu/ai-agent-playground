@@ -85,6 +85,7 @@ def main() -> int:
     frontend_stdout, frontend_ms = run_text([py, "scripts/smoke_unified_frontend_actions.py"])
     if "unified frontend actions smoke: ok" not in frontend_stdout:
         raise SystemExit(f"unexpected frontend action smoke output: {frontend_stdout!r}")
+    deployed_frontend, deployed_frontend_ms = run_json([py, "scripts/verify_public_frontend_actions.py", base])
     health, health_ms = run_json(health_cmd)
     contract, contract_ms = run_json(contract_cmd)
     discovery, discovery_ms = run_json([py, "scripts/verify_public_discovery.py", base])
@@ -95,6 +96,7 @@ def main() -> int:
 
     durations = {
         "frontend_actions": frontend_ms,
+        "deployed_frontend_actions": deployed_frontend_ms,
         "health": health_ms,
         "agent_contract": contract_ms,
         "discovery": discovery_ms,
@@ -111,6 +113,7 @@ def main() -> int:
         "slow_checks": slow_checks(durations, threshold_ms),
         "checks": {
             "frontend_actions": {"ok": True, "duration_ms": frontend_ms},
+            "deployed_frontend_actions": {**deployed_frontend, "duration_ms": deployed_frontend_ms},
             "health": {**health, "duration_ms": health_ms},
             "agent_contract": {**contract, "duration_ms": contract_ms},
             "discovery": {**discovery, "duration_ms": discovery_ms},
