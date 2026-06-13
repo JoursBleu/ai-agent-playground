@@ -162,23 +162,33 @@ function renderTexasActionBar(ctx) {
   setTexasButton("btnTexasAllin", allInA);
 
   const callAmt = me.call_amount || (callA && callA.params && callA.params.amount) || 0;
-  if ($("btnTexasCall")) $("btnTexasCall").textContent = `${t('texas_btn_call')} (${callAmt})`;
+  const callButton = $("btnTexasCall");
+  if (callButton) {
+    callButton.textContent = `${t('texas_btn_call')} (${callAmt})`;
+    callButton.dataset.actionParamAmount = String(callAmt || 0);
+  }
+  const minRaise = raiseA && raiseA.params ? raiseA.params.min : me.min_raise_to;
+  const maxRaise = raiseA && raiseA.params ? raiseA.params.max : me.max_raise_to;
   if ($("texasCallInfo")) {
-    const minRaise = raiseA && raiseA.params ? raiseA.params.min : me.min_raise_to;
-    const maxRaise = raiseA && raiseA.params ? raiseA.params.max : me.max_raise_to;
     $("texasCallInfo").textContent = `call ${callAmt || 0} · raise ${minRaise || '—'}-${maxRaise || '—'}`;
+    $("texasCallInfo").dataset.actionParamCallAmount = String(callAmt || 0);
+    $("texasCallInfo").dataset.actionParamRaiseMin = String(minRaise || '');
+    $("texasCallInfo").dataset.actionParamRaiseMax = String(maxRaise || '');
   }
 
   const range = $("texasRaiseInput");
   const number = $("texasRaiseNumber");
-  const min = Number((raiseA && raiseA.params && raiseA.params.min) || me.min_raise_to || 1);
-  const max = Number((raiseA && raiseA.params && raiseA.params.max) || me.max_raise_to || min);
+  const min = Number(minRaise || 1);
+  const max = Number(maxRaise || min);
   const disabledRaise = !(raiseA && raiseA.enabled) || max < min;
   [range, number].forEach(inp => {
     if (!inp) return;
     inp.min = min;
     inp.max = max;
     inp.disabled = disabledRaise;
+    inp.dataset.actionId = 'raise';
+    inp.dataset.actionParamMin = String(min);
+    inp.dataset.actionParamMax = String(max);
     const cur = parseInt(inp.value, 10);
     if (!Number.isFinite(cur) || cur < min || cur > max) inp.value = min;
   });
