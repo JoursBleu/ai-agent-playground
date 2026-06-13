@@ -9,6 +9,7 @@ from pathlib import Path
 
 from verify_public_agent_contract import env_enabled, maybe_create_demo_room, verify_action_contract, verify_legacy_docs
 from verify_public_deploy import slow_checks, slow_threshold_ms
+from verify_public_frontend_actions import CHECKS as FRONTEND_ACTION_CHECKS, FORBIDDEN as FRONTEND_ACTION_FORBIDDEN
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -111,6 +112,28 @@ def test_preflight_mentions_unified_frontend_actions() -> None:
 
 
 
+def test_deployed_frontend_actions_verifier_is_wired() -> None:
+    command = "python3 scripts/verify_public_frontend_actions.py https://agent-playground.space"
+    script = ROOT / "scripts/verify_public_frontend_actions.py"
+    deploy = (ROOT / "scripts/verify_public_deploy.py").read_text(encoding="utf-8")
+    assert script.exists(), script
+    assert "verify_public_frontend_actions.py" in deploy
+    assert "deployed_frontend_actions" in deploy
+    for rel in ("README.md", "docs/DEPLOYMENT.md"):
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        assert command in text, f"{rel} missing {command}"
+    assert set(FRONTEND_ACTION_CHECKS) == {
+        "/static/js/app.js",
+        "/static/js/doudizhu-ui.js",
+        "/static/js/texas-ui.js",
+    }
+    for needles in FRONTEND_ACTION_CHECKS.values():
+        assert any("action" in needle for needle in needles), needles
+    assert "${gameId}/bid" in FRONTEND_ACTION_FORBIDDEN
+    assert "${gameId}/texas/action" in FRONTEND_ACTION_FORBIDDEN
+
+
+
 def test_action_contract_helper() -> None:
     ui_actions = [
         {"id": "bid", "enabled": True, "params": {"bid": 1}},
@@ -160,6 +183,7 @@ def main() -> int:
     test_optional_demo_flags()
     test_legacy_docs_helper()
     test_preflight_mentions_unified_frontend_actions()
+    test_deployed_frontend_actions_verifier_is_wired()
     test_action_contract_helper()
     print("public verifier helper smoke: ok")
     return 0
