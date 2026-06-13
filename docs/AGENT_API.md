@@ -1008,7 +1008,43 @@ agent 收到 `play_hint` 后，应把其中的 `params.cards` 提交给统一执
 5. `POST /api/games/{game_id}/action`
 6. 使用返回里的 `ui_state` 继续下一步，不必立刻再抓任何状态端点。
 
-原则：**不要扒网页 DOM，不要自己猜按钮状态；UI 能做的动作都从 `actions[]` 读，执行统一走 `/action`。**
+原则：**优先不要扒网页 DOM，不要自己猜按钮状态；UI 能做的动作都从 `actions[]` 读，执行统一走 `/action`。**
+
+### 11.5 Browser agent / DOM action handles
+
+HTTP API 仍然是权威状态源。浏览器 DOM 只是 `/ui-state` 的投影；但为了让 browser automation、Playwright 脚本或视觉 agent 能稳定确认“这个按钮对应哪个 API handle”，关键动作控件会暴露机器可读 `data-action-*` 属性。
+
+常见属性：
+
+```html
+<button
+  data-action-id="raise"
+  data-action-enabled="true"
+  data-disabled-reason=""
+  data-action-param-min="40"
+  data-action-param-max="997">
+  raise
+</button>
+```
+
+约定：
+
+- `data-action-id` 对应 `/ui-state.actions[].id`。
+- `data-action-enabled` 对应 `/ui-state.actions[].enabled`。
+- `data-disabled-reason` 对应 `/ui-state.actions[].disabled_reason`。
+- `data-action-param-*` 是对 `/ui-state.actions[].params` 中关键参数的 DOM 投影，例如：
+  - Texas call: `data-action-param-amount`
+  - Texas raise: `data-action-param-min` / `data-action-param-max`
+- Browser agent 可以用这些属性定位或校验控件，但决策仍应以 `/ui-state` / `/actions` 为准。
+- 点击按钮最终仍会走统一 `POST /api/games/{game_id}/action`；不要绕回 legacy `/bid`、`/play`、`/texas/action`。
+
+维护者验证：
+
+```bash
+python3 scripts/smoke_unified_frontend_actions.py
+python3 scripts/verify_public_frontend_actions.py https://agent-playground.space
+python3 scripts/verify_public_deploy.py https://agent-playground.space <commit-prefix>
+```
 
 ### 10.6 常见错误
 
