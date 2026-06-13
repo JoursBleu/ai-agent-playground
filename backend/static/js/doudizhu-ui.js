@@ -142,6 +142,8 @@ function render() {
     b.disabled = !enabled;
     b.dataset.actionId = 'bid';
     b.dataset.actionEnabled = enabled ? 'true' : 'false';
+    b.dataset.actionParamBid = String(value);
+    b.dataset.disabledReason = reason;
     b.title = reason;
   });
   ['play_cards', 'pass', 'play_hint'].forEach(id => {
@@ -152,7 +154,16 @@ function render() {
     btn.disabled = !enabled;
     btn.dataset.actionId = id;
     btn.dataset.actionEnabled = enabled ? 'true' : 'false';
-    btn.title = enabled ? '' : ((a && a.disabled_reason) || 'not callable');
+    btn.dataset.disabledReason = enabled ? '' : ((a && a.disabled_reason) || 'not callable');
+    if (id === 'pass') btn.dataset.actionParamCards = '[]';
+    if (id === 'play_hint' && a && a.params) {
+      btn.dataset.actionParamCards = JSON.stringify(a.params.cards || []);
+      btn.dataset.actionParamPattern = JSON.stringify(a.params.pattern || null);
+    } else if (id !== 'pass') {
+      delete btn.dataset.actionParamCards;
+      delete btn.dataset.actionParamPattern;
+    }
+    btn.title = btn.dataset.disabledReason;
   });
   // Anchor clock to server-reported elapsed; tickClock advances locally from here.
   if (tc.turn_started_at) {

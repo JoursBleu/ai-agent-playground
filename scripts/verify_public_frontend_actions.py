@@ -27,9 +27,13 @@ CHECKS = {
     "/static/js/doudizhu-ui.js": [
         "actionById.get('bid')",
         "dataset.actionId = 'bid'",
+        "dataset.actionParamBid",
+        "dataset.disabledReason",
         "['play_cards', 'pass', 'play_hint']",
         "dataset.actionId = id",
         "dataset.actionEnabled",
+        "dataset.actionParamCards",
+        "dataset.actionParamPattern",
     ],
     "/static/js/texas-ui.js": [
         "dataset.actionId",
