@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 import urllib.request
 
 UA = "OpenClaw-Frontend-Actions-Verify/1.0"
@@ -55,7 +56,9 @@ FORBIDDEN = [
 
 
 def get_text(url: str) -> str:
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    sep = "&" if "?" in url else "?"
+    cache_busted_url = f"{url}{sep}verify_ts={int(time.time() * 1000)}"
+    req = urllib.request.Request(cache_busted_url, headers={"User-Agent": UA, "Cache-Control": "no-cache"})
     with urllib.request.urlopen(req, timeout=20) as resp:
         return resp.read().decode("utf-8", "replace")
 
