@@ -1033,6 +1033,9 @@ HTTP API 仍然是权威状态源。浏览器 DOM 只是 `/ui-state` 的投影�
 - `data-action-enabled` 对应 `/ui-state.actions[].enabled`。
 - `data-disabled-reason` 对应 `/ui-state.actions[].disabled_reason`。
 - `data-action-param-*` 是对 `/ui-state.actions[].params` 中关键参数的 DOM 投影，例如：
+  - Dou Dizhu bid: `data-action-param-bid`
+  - Dou Dizhu pass: `data-action-param-cards="[]"`
+  - Dou Dizhu play hint: `data-action-param-cards` / `data-action-param-pattern`
   - Texas call: `data-action-param-amount`
   - Texas raise: `data-action-param-min` / `data-action-param-max`
 - Browser agent 可以用这些属性定位或校验控件，但决策仍应以 `/ui-state` / `/actions` 为准。
