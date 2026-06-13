@@ -35,9 +35,26 @@ def main() -> int:
     if "function gameAction" not in app_js or "/api/games/${gameId}/action" not in app_js:
         raise SystemExit("missing unified gameAction() helper")
     required_action_handles = {
-        "backend/static/js/app.js": ["data-action-id", "data-action-enabled"],
-        "backend/static/js/doudizhu-ui.js": ["dataset.actionId = 'bid'", "dataset.actionId = id"],
-        "backend/static/js/texas-ui.js": ["dataset.actionId", "data-action-id"],
+        "backend/static/js/app.js": [
+            "data-action-id",
+            "data-action-enabled",
+            "data-disabled-reason",
+        ],
+        "backend/static/js/doudizhu-ui.js": [
+            "actionById.get('bid')",
+            "dataset.actionId = 'bid'",
+            "['play_cards', 'pass', 'play_hint']",
+            "dataset.actionId = id",
+            "dataset.actionEnabled",
+        ],
+        "backend/static/js/texas-ui.js": [
+            "dataset.actionId",
+            "dataset.actionEnabled",
+            "dataset.disabledReason",
+            "data-action-id",
+            "data-action-enabled",
+            "data-disabled-reason",
+        ],
     }
     for rel, snippets in required_action_handles.items():
         text = (ROOT / rel).read_text(encoding="utf-8")
